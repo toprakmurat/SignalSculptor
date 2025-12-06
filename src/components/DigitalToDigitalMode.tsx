@@ -86,12 +86,16 @@ export function DigitalToDigitalMode() {
             color="#10b981"
             domain={[-0.5, 1.5]}
             isDigital={true}
+            bitDuration={1}
+            numBits={binaryInput.length}
           />
           <SignalChart
             data={signalData.transmitted}
             title={`Transmitted Signal - ${algorithm} Encoding`}
             color="#3b82f6"
             domain={[-1.5, 1.5]}
+            bitDuration={1}
+            numBits={binaryInput.length}
           />
           <SignalChart
             data={signalData.output}
@@ -99,6 +103,8 @@ export function DigitalToDigitalMode() {
             color="#f59e0b"
             domain={[-0.5, 1.5]}
             isDigital={true}
+            bitDuration={1}
+            numBits={binaryInput.length}
           />
         </div>
       )}
