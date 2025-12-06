@@ -15,3 +15,19 @@ export interface SignalData {
   transmitted: DataPoint[];
   output: DataPoint[];
 }
+
+export interface PCMConfig {
+  samplingRate: number;
+  quantizationLevels: number;
+}
+
+export interface DeltaModulationConfig {
+  samplingRate: number;
+  deltaStepSize: number;
+}
+
+export interface AnalogToDigitalConfig {
+  algorithm: AnalogToDigitalAlgorithm;
+  pcm?: PCMConfig;
+  deltaModulation?: DeltaModulationConfig;
+}
