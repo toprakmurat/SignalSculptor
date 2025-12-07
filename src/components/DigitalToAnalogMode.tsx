@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { SignalChart } from './SignalChart';
 import { generateDigitalToAnalogSignal } from '../utils/digitalToAnalog';
 import { DigitalToAnalogAlgorithm, SignalData } from '../types';
@@ -19,6 +19,14 @@ export function DigitalToAnalogMode() {
     const data = generateDigitalToAnalogSignal(binaryInput, algorithm);
     setSignalData(data);
   };
+
+  // Auto-regenerate signal when algorithm changes (if valid data exists)
+  useEffect(() => {
+    if (signalData && /^[01]+$/.test(binaryInput)) {
+      const data = generateDigitalToAnalogSignal(binaryInput, algorithm);
+      setSignalData(data);
+    }
+  }, [algorithm, binaryInput]);
 
   return (
     <div className="space-y-6">

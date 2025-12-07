@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { SignalChart } from './SignalChart';
 import { generateDigitalToDigitalSignal } from '../utils/digitalToDigital';
 import { DigitalToDigitalAlgorithm, SignalData } from '../types';
@@ -15,6 +15,9 @@ export function DigitalToDigitalMode() {
     'Manchester',
     'Differential Manchester',
     'AMI',
+    'Pseudoternary',
+    'B8ZS',
+    'HDB3',
   ];
 
   const handleSimulate = () => {
@@ -25,6 +28,14 @@ export function DigitalToDigitalMode() {
     const data = generateDigitalToDigitalSignal(binaryInput, algorithm);
     setSignalData(data);
   };
+
+  // Auto-regenerate signal when algorithm changes (if valid data exists)
+  useEffect(() => {
+    if (signalData && /^[01]+$/.test(binaryInput)) {
+      const data = generateDigitalToDigitalSignal(binaryInput, algorithm);
+      setSignalData(data);
+    }
+  }, [algorithm, binaryInput]);
 
   return (
     <div className="space-y-6">
@@ -74,7 +85,7 @@ export function DigitalToDigitalMode() {
         </div>
 
         <div className="bg-blue-50 border-l-4 border-blue-500 p-3 text-sm text-gray-700">
-          <strong>Algorithm:</strong> {algorithm} | <strong>Input:</strong> {binaryInput}
+          <strong>Algorithm:</strong> {algorithm} | <strong>Input:</strong> {binaryInput} | <strong>*NLS:</strong> <i> No Line Signal</i>
         </div>
       </div>
 
@@ -85,9 +96,9 @@ export function DigitalToDigitalMode() {
             title="Input Signal - Digital Bits"
             color="#10b981"
             domain={[-0.5, 1.5]}
-            isDigital={true}
             bitDuration={1}
             numBits={binaryInput.length}
+            ticks={[0, 1]}
           />
           <SignalChart
             data={signalData.transmitted}
@@ -96,15 +107,18 @@ export function DigitalToDigitalMode() {
             domain={[-1.5, 1.5]}
             bitDuration={1}
             numBits={binaryInput.length}
+            ticks={[-1, 0, 1]}
+            isDigital={true}
+            isTransmitted={true}
           />
           <SignalChart
             data={signalData.output}
             title="Output Signal - Decoded Bits"
             color="#f59e0b"
             domain={[-0.5, 1.5]}
-            isDigital={true}
             bitDuration={1}
             numBits={binaryInput.length}
+            ticks={[0, 1]}
           />
         </div>
       )}

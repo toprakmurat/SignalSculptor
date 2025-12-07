@@ -62,6 +62,30 @@ export function AnalogToDigitalMode() {
     setSignalData(data);
   };
 
+  // Auto-regenerate signal when parameters change (if valid data exists)
+  useEffect(() => {
+    if (signalData) {
+      const config = algorithm === 'PCM'
+        ? {
+            algorithm,
+            pcm: {
+              samplingRate: pcmSamplingRate,
+              quantizationLevels,
+            },
+          }
+        : {
+            algorithm,
+            deltaModulation: {
+              samplingRate: dmSamplingRate,
+              deltaStepSize,
+            },
+          };
+      
+      const data = generateAnalogToDigitalSignal(frequency, amplitude, config);
+      setSignalData(data);
+    }
+  }, [algorithm, frequency, amplitude, pcmSamplingRate, quantizationLevels, dmSamplingRate, deltaStepSize]);
+
   return (
     <div className="space-y-6">
       <div className="bg-white rounded-lg shadow-md p-6">
@@ -254,6 +278,7 @@ export function AnalogToDigitalMode() {
             title={`Transmitted Signal - ${algorithm} Digital Stream`}
             color="#3b82f6"
             isDigital={true}
+            isTransmitted={true}
           />
           <SignalChart
             data={signalData.output}

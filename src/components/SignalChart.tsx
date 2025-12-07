@@ -10,6 +10,8 @@ interface SignalChartProps {
   isDigital?: boolean;
   bitDuration?: number;
   numBits?: number;
+  ticks?: number[];
+  isTransmitted?: boolean;
 }
 
 export function SignalChart({ 
@@ -20,7 +22,9 @@ export function SignalChart({
   showGrid = true, 
   isDigital = false,
   bitDuration = 1,
-  numBits = 0
+  numBits = 0,
+  ticks,
+  isTransmitted = false
 }: SignalChartProps) {
   // Calculate transition points (bit boundaries) for vertical lines
   const transitionLines = [];
@@ -40,6 +44,14 @@ export function SignalChart({
   const xDomain = xValues.length > 0 
     ? [Math.min(...xValues), Math.max(...xValues)]
     : undefined;
+
+  // Custom tick formatter for digital transmitted signals
+  const formatDigitalTick = (value: number) => {
+    if (value === 1) return 'High';
+    if (value === 0) return '*NLS';
+    if (value === -1) return 'Low';
+    return value.toString();
+  };
 
   return (
     <div className="bg-white rounded-lg shadow-md p-4">
@@ -73,9 +85,10 @@ export function SignalChart({
           <YAxis
             stroke="#64748b"
             style={{ fontSize: '12px' }}
-            domain={isDigital ? [0, 1] : (domain || ['auto', 'auto'])}
-            ticks={isDigital ? [0, 1] : undefined}
-            label={{ value: 'Amplitude', angle: -90, position: 'insideLeft' }}
+            domain={domain || (isDigital ? [0, 1] : ['auto', 'auto'])}
+            ticks={ticks !== undefined ? ticks : (isDigital ? [0, 1] : undefined)}
+            label={{ value: 'Voltage', angle: -90, position: 'insideLeft' }}
+            tickFormatter={isDigital && isTransmitted ? formatDigitalTick : undefined}
           />
           <Tooltip
             contentStyle={{

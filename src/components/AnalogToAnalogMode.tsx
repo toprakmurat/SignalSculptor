@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { SignalChart } from './SignalChart';
 import { generateAnalogToAnalogSignal } from '../utils/analogToAnalog';
 import { AnalogToAnalogAlgorithm, SignalData } from '../types';
@@ -16,6 +16,14 @@ export function AnalogToAnalogMode() {
     const data = generateAnalogToAnalogSignal(frequency, amplitude, algorithm);
     setSignalData(data);
   };
+
+  // Auto-regenerate signal when parameters change (if valid data exists)
+  useEffect(() => {
+    if (signalData) {
+      const data = generateAnalogToAnalogSignal(frequency, amplitude, algorithm);
+      setSignalData(data);
+    }
+  }, [algorithm, frequency, amplitude]);
 
   return (
     <div className="space-y-6">
