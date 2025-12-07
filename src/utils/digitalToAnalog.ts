@@ -6,7 +6,7 @@ export function generateDigitalToAnalogSignal(
 ): { input: DataPoint[]; transmitted: DataPoint[]; output: DataPoint[] } {
   const bits = binaryInput.split('').map(b => parseInt(b));
   const bitDuration = 1;
-  const samplesPerBit = 50;
+  const samplesPerBit = 100;
 
   const inputSignal: DataPoint[] = [];
   for (let i = 0; i < bits.length; i++) {
@@ -41,7 +41,7 @@ function generateASK(bits: number[], bitDuration: number, samplesPerBit: number)
 
   for (let i = 0; i < bits.length; i++) {
     const amplitude = bits[i] === 1 ? 1 : 0.2;
-    for (let j = 0; j < samplesPerBit; j++) {
+    for (let j = 0; j <= samplesPerBit; j++) {
       const t = i * bitDuration + (j / samplesPerBit) * bitDuration;
       const y = amplitude * Math.sin(2 * Math.PI * carrierFreq * t);
       signal.push({ x: t, y });
@@ -57,7 +57,7 @@ function generateFSK(bits: number[], bitDuration: number, samplesPerBit: number)
 
   for (let i = 0; i < bits.length; i++) {
     const frequency = bits[i] === 1 ? freq1 : freq0;
-    for (let j = 0; j < samplesPerBit; j++) {
+    for (let j = 0; j <= samplesPerBit; j++) {
       const t = i * bitDuration + (j / samplesPerBit) * bitDuration;
       const y = Math.sin(2 * Math.PI * frequency * t);
       signal.push({ x: t, y });
@@ -71,10 +71,10 @@ function generatePSK(bits: number[], bitDuration: number, samplesPerBit: number)
   const carrierFreq = 5;
 
   for (let i = 0; i < bits.length; i++) {
-    const phase = bits[i] === 1 ? 0 : Math.PI;
-    for (let j = 0; j < samplesPerBit; j++) {
+    const phaseShift = bits[i] === 1 ? 0 : Math.PI;
+    for (let j = 0; j <= samplesPerBit; j++) {
       const t = i * bitDuration + (j / samplesPerBit) * bitDuration;
-      const y = Math.sin(2 * Math.PI * carrierFreq * t + phase);
+      const y = Math.sin(2 * Math.PI * carrierFreq * t + phaseShift);
       signal.push({ x: t, y });
     }
   }
