@@ -4,7 +4,6 @@ import { DigitalToDigitalMode } from './components/DigitalToDigitalMode';
 import { DigitalToAnalogMode } from './components/DigitalToAnalogMode';
 import { AnalogToDigitalMode } from './components/AnalogToDigitalMode';
 import { AnalogToAnalogMode } from './components/AnalogToAnalogMode';
-import { BenchmarkSection } from './components/BenchmarkSection';
 import { SimulationMode } from './types';
 
 function App() {
@@ -76,20 +75,6 @@ function App() {
                 </button>
               );
             })}
-            <button
-              onClick={() => setActiveMode('benchmark')}
-              className={`flex items-center gap-2 px-4 py-3 rounded-md font-medium transition-all ${
-                activeMode === 'benchmark'
-                  ? 'bg-blue-600 text-white shadow-md'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              <Activity size={20} />
-              <div className="text-left">
-                <div className="text-sm font-bold">Benchmark</div>
-                <div className="text-xs opacity-90">Performance</div>
-              </div>
-            </button>
           </div>
         </div>
 
@@ -98,7 +83,6 @@ function App() {
           {activeMode === 'digital-to-analog' && <DigitalToAnalogMode />}
           {activeMode === 'analog-to-digital' && <AnalogToDigitalMode />}
           {activeMode === 'analog-to-analog' && <AnalogToAnalogMode />}
-          {activeMode === 'benchmark' && <BenchmarkSection />}
         </div>
       </div>
 
