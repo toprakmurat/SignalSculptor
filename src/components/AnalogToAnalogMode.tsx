@@ -1,29 +1,81 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { SignalChart } from './SignalChart';
 import { generateAnalogToAnalogSignal } from '../utils/analogToAnalog';
 import { AnalogToAnalogAlgorithm, SignalData } from '../types';
 import { Play } from 'lucide-react';
 
+/**
+ * Analog-to-Analog Modulation Mode Component
+ * 
+ * Provides UI for simulating AM, FM, and PM carrier modulation techniques.
+ * Optimized with debouncing to prevent recalculation on every slider movement.
+ */
 export function AnalogToAnalogMode() {
   const [frequency, setFrequency] = useState(2);
   const [amplitude, setAmplitude] = useState(1);
   const [algorithm, setAlgorithm] = useState<AnalogToAnalogAlgorithm>('AM');
   const [signalData, setSignalData] = useState<SignalData | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  
+  // Debounce timer ref to prevent excessive recalculations
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const algorithms: AnalogToAnalogAlgorithm[] = ['AM', 'FM', 'PM'];
 
-  const handleSimulate = () => {
-    const data = generateAnalogToAnalogSignal(frequency, amplitude, algorithm);
-    setSignalData(data);
-  };
-
-  // Auto-regenerate signal when parameters change (if valid data exists)
-  useEffect(() => {
-    if (signalData) {
+  /**
+   * Generates signal data with error handling
+   */
+  const generateSignal = useCallback(() => {
+    try {
+      // Validate inputs
+      if (frequency <= 0 || frequency > 10) {
+        throw new Error('Frequency must be between 0.5 and 10 Hz');
+      }
+      if (amplitude <= 0 || amplitude > 5) {
+        throw new Error('Amplitude must be between 0.5 and 5');
+      }
+      
       const data = generateAnalogToAnalogSignal(frequency, amplitude, algorithm);
       setSignalData(data);
+      setError(null);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to generate signal';
+      setError(errorMessage);
+      console.error('Signal generation error:', err);
     }
-  }, [algorithm, frequency, amplitude]);
+  }, [frequency, amplitude, algorithm]);
+
+  const handleSimulate = useCallback(() => {
+    generateSignal();
+  }, [generateSignal]);
+
+  // Debounced auto-regenerate signal when parameters change (if valid data exists)
+  // Only recalculates after user stops adjusting sliders for 300ms
+  useEffect(() => {
+    if (signalData) {
+      // Clear existing timer
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+      
+      // Set new timer for debounced recalculation
+      debounceTimerRef.current = setTimeout(() => {
+        generateSignal();
+      }, 300);
+      
+      // Cleanup on unmount or dependency change
+      return () => {
+        if (debounceTimerRef.current) {
+          clearTimeout(debounceTimerRef.current);
+        }
+      };
+    }
+  }, [algorithm, frequency, amplitude, signalData, generateSignal]);
+
+  /**
+   * Memoized carrier frequency calculation
+   */
+  const carrierFrequency = useMemo(() => frequency * 5, [frequency]);
 
   return (
     <div className="space-y-6">
@@ -94,8 +146,14 @@ export function AnalogToAnalogMode() {
           {algorithm === 'AM' && 'Amplitude Modulation'}
           {algorithm === 'FM' && 'Frequency Modulation'}
           {algorithm === 'PM' && 'Phase Modulation'}) |{' '}
-          <strong>Carrier Frequency:</strong> {frequency * 5} Hz
+          <strong>Carrier Frequency:</strong> {carrierFrequency} Hz
         </div>
+        
+        {error && (
+          <div className="bg-red-50 border-l-4 border-red-500 p-3 text-sm text-red-700 mt-4">
+            <strong>Error:</strong> {error}
+          </div>
+        )}
       </div>
 
       {signalData && (

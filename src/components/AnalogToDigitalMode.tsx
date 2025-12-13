@@ -1,9 +1,15 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { SignalChart } from './SignalChart';
 import { generateAnalogToDigitalSignal } from '../utils/analogToDigital';
 import { AnalogToDigitalAlgorithm, SignalData } from '../types';
 import { Play, Lightbulb } from 'lucide-react';
 
+/**
+ * Analog-to-Digital Conversion Mode Component
+ * 
+ * Provides UI for simulating PCM and Delta Modulation conversion algorithms.
+ * Optimized with debouncing to prevent recalculation on every input change.
+ */
 export function AnalogToDigitalMode() {
   const [frequency, setFrequency] = useState(2);
   const [amplitude, setAmplitude] = useState(1);
@@ -17,32 +23,47 @@ export function AnalogToDigitalMode() {
   const [dmSamplingRate, setDmSamplingRate] = useState(32);
   const [deltaStepSize, setDeltaStepSize] = useState(0.15);
   
-  // Helper to get optimal config based on current frequency
-  const getOptimalConfig = () => {
-    if (algorithm === 'PCM') {
-      // Nyquist: at least 2x frequency, recommend 4-5x for good quality
-      const optimalSampling = Math.max(10, Math.round(frequency * 5));
-      setPcmSamplingRate(optimalSampling);
-      setQuantizationLevels(16); // 4-bit encoding, good balance
-    } else {
-      // Delta Modulation needs higher sampling rate, recommend 8-10x
-      const optimalSampling = Math.max(20, Math.round(frequency * 10));
-      setDmSamplingRate(optimalSampling);
-      setDeltaStepSize(0.15); // 15% of amplitude is usually good
+  const [signalData, setSignalData] = useState<SignalData | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  
+  // Debounce timer ref to prevent excessive recalculations
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const algorithms: AnalogToDigitalAlgorithm[] = ['PCM', 'Delta Modulation'];
+
+  /**
+   * Generates optimal configuration based on current frequency and algorithm.
+   * Uses Nyquist theorem: sampling rate should be at least 2x frequency.
+   */
+  const getOptimalConfig = useCallback(() => {
+    try {
+      if (algorithm === 'PCM') {
+        // Nyquist: at least 2x frequency, recommend 4-5x for good quality
+        const optimalSampling = Math.max(10, Math.round(frequency * 5));
+        setPcmSamplingRate(optimalSampling);
+        setQuantizationLevels(16); // 4-bit encoding, good balance
+      } else {
+        // Delta Modulation needs higher sampling rate, recommend 8-10x
+        const optimalSampling = Math.max(20, Math.round(frequency * 10));
+        setDmSamplingRate(optimalSampling);
+        setDeltaStepSize(0.15); // 15% of amplitude is usually good
+      }
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to set optimal configuration');
     }
-  };
+  }, [algorithm, frequency]);
   
   // Update optimal config when frequency or algorithm changes
   useEffect(() => {
     getOptimalConfig();
-  }, [frequency, algorithm]);
-  
-  const [signalData, setSignalData] = useState<SignalData | null>(null);
+  }, [getOptimalConfig]);
 
-  const algorithms: AnalogToDigitalAlgorithm[] = ['PCM', 'Delta Modulation'];
-
-  const handleSimulate = () => {
-    const config = algorithm === 'PCM'
+  /**
+   * Memoized configuration object to avoid recreating on every render
+   */
+  const config = useMemo(() => {
+    return algorithm === 'PCM'
       ? {
           algorithm,
           pcm: {
@@ -57,34 +78,63 @@ export function AnalogToDigitalMode() {
             deltaStepSize,
           },
         };
-    
-    const data = generateAnalogToDigitalSignal(frequency, amplitude, config);
-    setSignalData(data);
-  };
+  }, [algorithm, pcmSamplingRate, quantizationLevels, dmSamplingRate, deltaStepSize]);
 
-  // Auto-regenerate signal when parameters change (if valid data exists)
-  useEffect(() => {
-    if (signalData) {
-      const config = algorithm === 'PCM'
-        ? {
-            algorithm,
-            pcm: {
-              samplingRate: pcmSamplingRate,
-              quantizationLevels,
-            },
-          }
-        : {
-            algorithm,
-            deltaModulation: {
-              samplingRate: dmSamplingRate,
-              deltaStepSize,
-            },
-          };
-      
+  /**
+   * Generates signal data with error handling
+   */
+  const generateSignal = useCallback(() => {
+    try {
+      // Validate inputs
+      if (frequency <= 0 || frequency > 10) {
+        throw new Error('Frequency must be between 0.5 and 10 Hz');
+      }
+      if (amplitude <= 0 || amplitude > 5) {
+        throw new Error('Amplitude must be between 0.5 and 5');
+      }
+      if (algorithm === 'PCM' && (!config.pcm || config.pcm.samplingRate < 2 * frequency)) {
+        throw new Error(`PCM sampling rate must be at least ${Math.ceil(2 * frequency)} Hz (Nyquist criterion)`);
+      }
+      if (algorithm === 'Delta Modulation' && (!config.deltaModulation || config.deltaModulation.samplingRate < 2 * frequency)) {
+        throw new Error(`Delta Modulation sampling rate must be at least ${Math.ceil(2 * frequency)} Hz`);
+      }
+
       const data = generateAnalogToDigitalSignal(frequency, amplitude, config);
       setSignalData(data);
+      setError(null);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to generate signal';
+      setError(errorMessage);
+      console.error('Signal generation error:', err);
     }
-  }, [algorithm, frequency, amplitude, pcmSamplingRate, quantizationLevels, dmSamplingRate, deltaStepSize]);
+  }, [frequency, amplitude, config, algorithm]);
+
+  const handleSimulate = useCallback(() => {
+    generateSignal();
+  }, [generateSignal]);
+
+  // Debounced auto-regenerate signal when parameters change (if valid data exists)
+  // Only recalculates after user stops adjusting sliders for 300ms
+  useEffect(() => {
+    if (signalData) {
+      // Clear existing timer
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+      
+      // Set new timer for debounced recalculation
+      debounceTimerRef.current = setTimeout(() => {
+        generateSignal();
+      }, 300);
+      
+      // Cleanup on unmount or dependency change
+      return () => {
+        if (debounceTimerRef.current) {
+          clearTimeout(debounceTimerRef.current);
+        }
+      };
+    }
+  }, [algorithm, frequency, amplitude, pcmSamplingRate, quantizationLevels, dmSamplingRate, deltaStepSize, signalData, generateSignal]);
 
   return (
     <div className="space-y-6">
@@ -264,6 +314,12 @@ export function AnalogToDigitalMode() {
           {algorithm === 'PCM' && <> | <strong>Quantization Levels:</strong> {quantizationLevels}</>}
           {algorithm === 'Delta Modulation' && <> | <strong>Delta Step:</strong> {deltaStepSize.toFixed(2)}</>}
         </div>
+        
+        {error && (
+          <div className="bg-red-50 border-l-4 border-red-500 p-3 text-sm text-red-700 mt-4">
+            <strong>Error:</strong> {error}
+          </div>
+        )}
       </div>
 
       {signalData && (

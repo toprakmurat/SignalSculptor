@@ -14,6 +14,16 @@ export interface SignalData {
   input: DataPoint[];
   transmitted: DataPoint[];
   output: DataPoint[];
+  totalBits?: number; // Total number of bits for lazy loading
+}
+
+/**
+ * Configuration for viewport-based rendering
+ */
+export interface ViewportConfig {
+  startBit: number;
+  endBit: number;
+  windowSize: number; // Number of bits to show at once
 }
 
 export interface PCMConfig {
