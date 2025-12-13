@@ -1,0 +1,77 @@
+syntax = "proto3";
+
+package signal_scope;
+
+service SignalConversion {
+  rpc AnalogToAnalog (AnalogToAnalogRequest) returns (SignalResponse);
+  rpc AnalogToDigital (AnalogToDigitalRequest) returns (SignalResponse);
+  rpc DigitalToAnalog (DigitalToAnalogRequest) returns (SignalResponse);
+  rpc DigitalToDigital (DigitalToDigitalRequest) returns (SignalResponse);
+}
+
+message DataPoint {
+  double x = 1;
+  double y = 2;
+}
+
+message SignalResponse {
+  repeated DataPoint input = 1;
+  repeated DataPoint transmitted = 2;
+  repeated DataPoint output = 3;
+}
+
+message AnalogToAnalogRequest {
+  double message_frequency = 1;
+  double message_amplitude = 2;
+  enum Algorithm {
+    AM = 0;
+    FM = 1;
+    PM = 2;
+  }
+  Algorithm algorithm = 3;
+}
+
+message AnalogToDigitalRequest {
+  double frequency = 1;
+  double amplitude = 2;
+  
+  oneof config {
+    PCMConfig pcm = 3;
+    DeltaModulationConfig delta_modulation = 4;
+  }
+
+  message PCMConfig {
+    double sampling_rate = 1;
+    int32 quantization_levels = 2;
+  }
+
+  message DeltaModulationConfig {
+    double sampling_rate = 1;
+    double delta_step_size = 2;
+  }
+}
+
+message DigitalToAnalogRequest {
+  string binary_input = 1;
+  enum Algorithm {
+    ASK = 0;
+    FSK = 1;
+    PSK = 2;
+  }
+  Algorithm algorithm = 2;
+}
+
+message DigitalToDigitalRequest {
+  string binary_input = 1;
+  enum Algorithm {
+    NRZ_L = 0;
+    NRZ_I = 1;
+    MANCHESTER = 2;
+    DIFFERENTIAL_MANCHESTER = 3;
+    AMI = 4;
+    PSEUDOTERNARY = 5;
+    B8ZS = 6;
+    HDB3 = 7;
+  }
+  Algorithm algorithm = 2;
+}

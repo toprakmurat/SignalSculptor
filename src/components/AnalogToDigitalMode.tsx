@@ -14,18 +14,18 @@ export function AnalogToDigitalMode() {
   const [frequency, setFrequency] = useState(2);
   const [amplitude, setAmplitude] = useState(1);
   const [algorithm, setAlgorithm] = useState<AnalogToDigitalAlgorithm>('PCM');
-  
+
   // PCM settings
   const [pcmSamplingRate, setPcmSamplingRate] = useState(10);
   const [quantizationLevels, setQuantizationLevels] = useState(16);
-  
+
   // Delta Modulation settings
   const [dmSamplingRate, setDmSamplingRate] = useState(32);
   const [deltaStepSize, setDeltaStepSize] = useState(0.15);
-  
+
   const [signalData, setSignalData] = useState<SignalData | null>(null);
   const [error, setError] = useState<string | null>(null);
-  
+
   // Debounce timer ref to prevent excessive recalculations
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -53,7 +53,7 @@ export function AnalogToDigitalMode() {
       setError(err instanceof Error ? err.message : 'Failed to set optimal configuration');
     }
   }, [algorithm, frequency]);
-  
+
   // Update optimal config when frequency or algorithm changes
   useEffect(() => {
     getOptimalConfig();
@@ -65,25 +65,25 @@ export function AnalogToDigitalMode() {
   const config = useMemo(() => {
     return algorithm === 'PCM'
       ? {
-          algorithm,
-          pcm: {
-            samplingRate: pcmSamplingRate,
-            quantizationLevels,
-          },
-        }
+        algorithm,
+        pcm: {
+          samplingRate: pcmSamplingRate,
+          quantizationLevels,
+        },
+      }
       : {
-          algorithm,
-          deltaModulation: {
-            samplingRate: dmSamplingRate,
-            deltaStepSize,
-          },
-        };
+        algorithm,
+        deltaModulation: {
+          samplingRate: dmSamplingRate,
+          deltaStepSize,
+        },
+      };
   }, [algorithm, pcmSamplingRate, quantizationLevels, dmSamplingRate, deltaStepSize]);
 
   /**
    * Generates signal data with error handling
    */
-  const generateSignal = useCallback(() => {
+  const generateSignal = useCallback(async () => {
     try {
       // Validate inputs
       if (frequency <= 0 || frequency > 10) {
@@ -99,7 +99,7 @@ export function AnalogToDigitalMode() {
         throw new Error(`Delta Modulation sampling rate must be at least ${Math.ceil(2 * frequency)} Hz`);
       }
 
-      const data = generateAnalogToDigitalSignal(frequency, amplitude, config);
+      const data = await generateAnalogToDigitalSignal(frequency, amplitude, config);
       setSignalData(data);
       setError(null);
     } catch (err) {
@@ -121,12 +121,12 @@ export function AnalogToDigitalMode() {
       if (debounceTimerRef.current) {
         clearTimeout(debounceTimerRef.current);
       }
-      
+
       // Set new timer for debounced recalculation
       debounceTimerRef.current = setTimeout(() => {
         generateSignal();
       }, 300);
-      
+
       // Cleanup on unmount or dependency change
       return () => {
         if (debounceTimerRef.current) {
@@ -215,11 +215,11 @@ export function AnalogToDigitalMode() {
             <div>
               <strong>Configuration Guide:</strong>
               {algorithm === 'PCM' ? (
-                <span> For PCM, use sampling rate ≥ 2× frequency (Nyquist), recommend 4-5× for quality. 
-                Higher quantization levels (16-32) provide better fidelity but use more bandwidth.</span>
+                <span> For PCM, use sampling rate ≥ 2× frequency (Nyquist), recommend 4-5× for quality.
+                  Higher quantization levels (16-32) provide better fidelity but use more bandwidth.</span>
               ) : (
-                <span> For Delta Modulation, use sampling rate ≥ 8-10× frequency. 
-                Balance delta step: too small causes granular noise, too large causes slope overload.</span>
+                <span> For Delta Modulation, use sampling rate ≥ 8-10× frequency.
+                  Balance delta step: too small causes granular noise, too large causes slope overload.</span>
               )}
             </div>
           </div>
@@ -314,7 +314,7 @@ export function AnalogToDigitalMode() {
           {algorithm === 'PCM' && <> | <strong>Quantization Levels:</strong> {quantizationLevels}</>}
           {algorithm === 'Delta Modulation' && <> | <strong>Delta Step:</strong> {deltaStepSize.toFixed(2)}</>}
         </div>
-        
+
         {error && (
           <div className="bg-red-50 border-l-4 border-red-500 p-3 text-sm text-red-700 mt-4">
             <strong>Error:</strong> {error}

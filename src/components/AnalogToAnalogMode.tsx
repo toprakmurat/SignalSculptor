@@ -16,7 +16,7 @@ export function AnalogToAnalogMode() {
   const [algorithm, setAlgorithm] = useState<AnalogToAnalogAlgorithm>('AM');
   const [signalData, setSignalData] = useState<SignalData | null>(null);
   const [error, setError] = useState<string | null>(null);
-  
+
   // Debounce timer ref to prevent excessive recalculations
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -25,7 +25,7 @@ export function AnalogToAnalogMode() {
   /**
    * Generates signal data with error handling
    */
-  const generateSignal = useCallback(() => {
+  const generateSignal = useCallback(async () => {
     try {
       // Validate inputs
       if (frequency <= 0 || frequency > 10) {
@@ -34,8 +34,8 @@ export function AnalogToAnalogMode() {
       if (amplitude <= 0 || amplitude > 5) {
         throw new Error('Amplitude must be between 0.5 and 5');
       }
-      
-      const data = generateAnalogToAnalogSignal(frequency, amplitude, algorithm);
+
+      const data = await generateAnalogToAnalogSignal(frequency, amplitude, algorithm);
       setSignalData(data);
       setError(null);
     } catch (err) {
@@ -57,12 +57,12 @@ export function AnalogToAnalogMode() {
       if (debounceTimerRef.current) {
         clearTimeout(debounceTimerRef.current);
       }
-      
+
       // Set new timer for debounced recalculation
       debounceTimerRef.current = setTimeout(() => {
         generateSignal();
       }, 300);
-      
+
       // Cleanup on unmount or dependency change
       return () => {
         if (debounceTimerRef.current) {
@@ -148,7 +148,7 @@ export function AnalogToAnalogMode() {
           {algorithm === 'PM' && 'Phase Modulation'}) |{' '}
           <strong>Carrier Frequency:</strong> {carrierFrequency} Hz
         </div>
-        
+
         {error && (
           <div className="bg-red-50 border-l-4 border-red-500 p-3 text-sm text-red-700 mt-4">
             <strong>Error:</strong> {error}

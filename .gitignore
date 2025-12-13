@@ -22,3 +22,7 @@ dist-ssr
 *.sw?
 .env
 .bolt
+
+example/
+cpp_server/build/
+cpp_server/.cache/

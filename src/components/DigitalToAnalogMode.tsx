@@ -16,7 +16,7 @@ export function DigitalToAnalogMode() {
   const [algorithm, setAlgorithm] = useState<DigitalToAnalogAlgorithm>('ASK');
   const [signalData, setSignalData] = useState<SignalData | null>(null);
   const [error, setError] = useState<string | null>(null);
-  
+
   // Debounce timer ref to prevent excessive recalculations on input changes
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -24,7 +24,7 @@ export function DigitalToAnalogMode() {
    * Memoized binary input length to avoid recalculation
    */
   const binaryLength = useMemo(() => binaryInput.length, [binaryInput]);
-  
+
   // Viewport state for large inputs
   const [viewportStart, setViewportStart] = useState(0);
   const needsViewport = useMemo(() => binaryLength > VIEWPORT_THRESHOLD, [binaryLength]);
@@ -42,7 +42,7 @@ export function DigitalToAnalogMode() {
    * Generates signal data with error handling
    * For large inputs, only generates data for the visible viewport
    */
-  const generateSignal = useCallback((start?: number, end?: number) => {
+  const generateSignal = useCallback(async (start?: number, end?: number) => {
     try {
       if (!isValidBinary(binaryInput)) {
         throw new Error('Please enter a valid binary string (only 0s and 1s)');
@@ -50,17 +50,17 @@ export function DigitalToAnalogMode() {
       if (binaryInput.length > 10000) {
         throw new Error('Binary input too long (max 10000 bits)');
       }
-      
+
       // For large inputs, generate only the visible portion
       const data = needsViewport && start !== undefined && end !== undefined
-        ? generateDigitalToAnalogSignal(binaryInput, algorithm, start, end)
-        : generateDigitalToAnalogSignal(binaryInput, algorithm);
-      
+        ? await generateDigitalToAnalogSignal(binaryInput, algorithm, start, end)
+        : await generateDigitalToAnalogSignal(binaryInput, algorithm);
+
       // Add totalBits for viewport navigation
       const signalDataWithTotal: SignalData = needsViewport
         ? { ...data, totalBits: binaryLength }
         : data;
-      
+
       setSignalData(signalDataWithTotal);
       setError(null);
     } catch (err) {
@@ -103,12 +103,12 @@ export function DigitalToAnalogMode() {
       if (debounceTimerRef.current) {
         clearTimeout(debounceTimerRef.current);
       }
-      
+
       // Set new timer for debounced recalculation
       debounceTimerRef.current = setTimeout(() => {
         generateSignal();
       }, 500);
-      
+
       // Cleanup on unmount or dependency change
       return () => {
         if (debounceTimerRef.current) {
@@ -178,7 +178,7 @@ export function DigitalToAnalogMode() {
           {algorithm === 'FSK' && 'Frequency Shift Keying'}
           {algorithm === 'PSK' && 'Phase Shift Keying'})
         </div>
-        
+
         {error && (
           <div className="bg-red-50 border-l-4 border-red-500 p-3 text-sm text-red-700 mt-4">
             <strong>Error:</strong> {error}

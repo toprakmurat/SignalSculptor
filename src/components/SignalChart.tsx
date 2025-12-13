@@ -37,12 +37,12 @@ interface SignalChartProps {
  * @param ticks - Custom Y-axis tick values
  * @param isTransmitted - Whether this is a transmitted signal (affects tick formatting)
  */
-export function SignalChart({ 
-  data, 
-  title, 
-  color, 
-  domain, 
-  showGrid = true, 
+export function SignalChart({
+  data,
+  title,
+  color,
+  domain,
+  showGrid = true,
   isDigital = false,
   bitDuration = 1,
   numBits = 0,
@@ -59,27 +59,27 @@ export function SignalChart({
   }, [numBits, totalBits]);
 
   const effectiveTotalBits = totalBits || numBits;
-  
+
   // Internal viewport state if not controlled externally
   const [internalViewportStart, setInternalViewportStart] = useState(0);
-  
+
   // Debounce timer for viewport changes
   const viewportDebounceTimerRef = useRef<NodeJS.Timeout | null>(null);
-  
+
   // Local state for immediate slider feedback (before debounced update)
   const [localViewportStart, setLocalViewportStart] = useState(viewportStart ?? 0);
-  
+
   // Sync local state with external viewport when it changes
   useEffect(() => {
     if (viewportStart !== undefined) {
       setLocalViewportStart(viewportStart);
     }
   }, [viewportStart]);
-  
+
   // Use external viewport if provided, otherwise use internal state
   // For immediate visual feedback during dragging, use localViewportStart
   const currentViewportStart = viewportStart !== undefined ? localViewportStart : internalViewportStart;
-  const currentViewportEnd = viewportEnd !== undefined 
+  const currentViewportEnd = viewportEnd !== undefined
     ? Math.min(localViewportStart + VIEWPORT_WINDOW_SIZE, effectiveTotalBits)
     : Math.min(currentViewportStart + VIEWPORT_WINDOW_SIZE, effectiveTotalBits);
 
@@ -89,11 +89,11 @@ export function SignalChart({
    */
   const visibleData = useMemo(() => {
     if (!needsViewport) return data;
-    
+
     // Use local viewport for immediate feedback, even if data hasn't been regenerated yet
     const viewportStartTime = currentViewportStart * bitDuration;
     const viewportEndTime = currentViewportEnd * bitDuration;
-    
+
     // Filter data to visible range
     // Note: If user drags outside loaded range, this will show partial/empty data
     // until debounced regeneration completes
@@ -107,19 +107,19 @@ export function SignalChart({
   const handleSliderChange = useCallback((value: number) => {
     const newStart = Math.max(0, Math.min(value, effectiveTotalBits - VIEWPORT_WINDOW_SIZE));
     const newEnd = Math.min(newStart + VIEWPORT_WINDOW_SIZE, effectiveTotalBits);
-    
+
     // Update local state immediately for visual feedback
     if (viewportStart !== undefined) {
       setLocalViewportStart(newStart);
     } else {
       setInternalViewportStart(newStart);
     }
-    
+
     // Clear existing debounce timer
     if (viewportDebounceTimerRef.current) {
       clearTimeout(viewportDebounceTimerRef.current);
     }
-    
+
     // Debounce the actual signal generation (300ms delay)
     viewportDebounceTimerRef.current = setTimeout(() => {
       if (onViewportChange) {
@@ -127,7 +127,7 @@ export function SignalChart({
       }
     }, 300);
   }, [effectiveTotalBits, onViewportChange, viewportStart]);
-  
+
   // Cleanup debounce timer on unmount
   useEffect(() => {
     return () => {
@@ -147,7 +147,7 @@ export function SignalChart({
       }
       return lines;
     }
-    
+
     // For viewport mode, only show lines in visible range
     const lines: number[] = [];
     const startBit = Math.floor(currentViewportStart);
@@ -162,11 +162,11 @@ export function SignalChart({
   // Only recalculates when viewport or bitDuration changes
   const xTicks = useMemo(() => {
     if (!needsViewport) {
-      return numBits > 0 
+      return numBits > 0
         ? Array.from({ length: numBits + 1 }, (_, i) => i * bitDuration)
         : undefined;
     }
-    
+
     // For viewport mode, show ticks in visible range
     const startBit = Math.floor(currentViewportStart);
     const endBit = Math.ceil(currentViewportEnd);
@@ -180,9 +180,9 @@ export function SignalChart({
     if (needsViewport) {
       return [currentViewportStart * bitDuration, currentViewportEnd * bitDuration];
     }
-    
+
     if (visibleData.length === 0) return undefined;
-    
+
     // Optimized: use single pass instead of Math.min/max on array
     let minX = visibleData[0].x;
     let maxX = visibleData[0].x;
@@ -214,44 +214,44 @@ export function SignalChart({
           </div>
         )}
       </div>
-      
-        {needsViewport && (
-          <div className="mb-4">
-            <div className="flex items-center gap-3">
-              <span className="text-xs text-gray-600 w-12">0</span>
-              <input
-                type="range"
-                min="0"
-                max={Math.max(0, effectiveTotalBits - VIEWPORT_WINDOW_SIZE)}
-                step="1"
-                value={currentViewportStart}
-                onChange={(e) => handleSliderChange(parseInt(e.target.value))}
-                className="flex-1"
-              />
-              <span className="text-xs text-gray-600 w-12 text-right">{effectiveTotalBits}</span>
-            </div>
-            <div className="text-xs text-gray-500 mt-1 text-center">
-              Navigate through signal (showing {VIEWPORT_WINDOW_SIZE} bits at a time) • Updates after 300ms pause
-            </div>
+
+      {needsViewport && (
+        <div className="mb-4">
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-gray-600 w-12">0</span>
+            <input
+              type="range"
+              min="0"
+              max={Math.max(0, effectiveTotalBits - VIEWPORT_WINDOW_SIZE)}
+              step="1"
+              value={currentViewportStart}
+              onChange={(e) => handleSliderChange(parseInt(e.target.value))}
+              className="flex-1"
+            />
+            <span className="text-xs text-gray-600 w-12 text-right">{effectiveTotalBits}</span>
           </div>
-        )}
-      
+          <div className="text-xs text-gray-500 mt-1 text-center">
+            Navigate through signal (showing {VIEWPORT_WINDOW_SIZE} bits at a time) • Updates after 300ms pause
+          </div>
+        </div>
+      )}
+
       <ResponsiveContainer width="100%" height={200}>
         <LineChart data={visibleData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
           {showGrid && <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />}
-          
+
           {/* Vertical transition lines for bit boundaries */}
           {transitionLines.map((x, idx) => (
-            <ReferenceLine 
+            <ReferenceLine
               key={`transition-${idx}`}
-              x={x} 
-              stroke="#9ca3af" 
+              x={x}
+              stroke="#9ca3af"
               strokeWidth={1.5}
               strokeDasharray="5 5"
               opacity={0.6}
             />
           ))}
-          
+
           <XAxis
             dataKey="x"
             stroke="#64748b"
