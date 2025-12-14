@@ -1,145 +1,232 @@
+import React, { useState } from 'react';
+import { Play, Download } from 'lucide-react';
+import { generateDigitalToDigitalSignal } from '../utils/digitalToDigital';
+import { generateDigitalToAnalogSignal } from '../utils/digitalToAnalog';
+import { generateAnalogToAnalogSignal } from '../utils/analogToAnalog';
+import { DigitalToDigitalAlgorithm, DigitalToAnalogAlgorithm, AnalogToAnalogAlgorithm } from '../types';
 
-import { useState } from 'react';
-import { Play, RotateCcw, Download, Trash2 } from 'lucide-react';
-import { runBenchmarks, BenchmarkResult } from '../utils/benchmark';
+// Helper to generate random binary string
+const generateBinaryString = (length: number): string => {
+    return Array(length).fill(0).map(() => Math.random() > 0.5 ? '1' : '0').join('');
+};
 
-export function BenchmarkMode() {
+interface BenchmarkResult {
+    inputType: string;
+    inputSize: number;
+    algorithm: string;
+    durationMs: number;
+    memoryUsedBytes?: number;
+    dataPointsCount: number;
+    timestamp: string;
+}
+
+export const BenchmarkMode = () => {
     const [results, setResults] = useState<BenchmarkResult[]>([]);
     const [isRunning, setIsRunning] = useState(false);
-    const [progressMsg, setProgressMsg] = useState("");
+    const [progress, setProgress] = useState('');
 
-    const handleRunBenchmark = async () => {
+    const runBenchmark = async () => {
         setIsRunning(true);
         setResults([]);
-        setProgressMsg("Starting...");
+
+        // Test Configurations
+        const inputSizes = [1000, 5000, 10000, 50000]; // Small to Large
+
+        const digitalToDigitalAlgorithms: DigitalToDigitalAlgorithm[] = [
+            'NRZ-L', 'NRZ-I', 'Manchester', 'Differential Manchester',
+            'AMI', 'Pseudoternary', 'B8ZS', 'HDB3'
+        ];
+
+        const digitalToAnalogAlgorithms: DigitalToAnalogAlgorithm[] = [
+            'ASK', 'FSK', 'PSK'
+        ];
+
+        const analogToAnalogAlgorithms: AnalogToAnalogAlgorithm[] = [
+            'AM', 'FM', 'PM'
+        ];
+
+        const newResults: BenchmarkResult[] = [];
 
         try {
-            await runBenchmarks(
-                (result) => {
+            // 1. Digital to Digital
+            for (const size of inputSizes) {
+                const input = generateBinaryString(size);
+
+                for (const algo of digitalToDigitalAlgorithms) {
+                    setProgress(`Testing ${algo} with ${size} bits...`);
+                    // Yield to UI
+                    await new Promise(r => setTimeout(r, 0));
+
+                    const startTime = performance.now();
+                    const response = await generateDigitalToDigitalSignal(input, algo);
+                    const endTime = performance.now();
+                    const duration = endTime - startTime;
+
+                    const resultSize = new Blob([JSON.stringify(response)]).size;
+
+                    const result: BenchmarkResult = {
+                        inputType: 'Binary String',
+                        inputSize: size,
+                        algorithm: algo,
+                        durationMs: duration,
+                        memoryUsedBytes: resultSize,
+                        dataPointsCount: response.output.length,
+                        timestamp: new Date().toISOString()
+                    };
+
+                    newResults.push(result);
                     setResults(prev => [...prev, result]);
-                },
-                (msg) => {
-                    setProgressMsg(msg);
                 }
-            );
+            }
+
+            // 2. Digital to Analog
+            for (const size of inputSizes) {
+                const input = generateBinaryString(size);
+
+                for (const algo of digitalToAnalogAlgorithms) {
+                    setProgress(`Testing ${algo} with ${size} bits...`);
+                    await new Promise(r => setTimeout(r, 0));
+
+                    const startTime = performance.now();
+                    const response = await generateDigitalToAnalogSignal(input, algo);
+                    const endTime = performance.now();
+                    const duration = endTime - startTime;
+
+                    const resultSize = new Blob([JSON.stringify(response)]).size;
+
+                    const result: BenchmarkResult = {
+                        inputType: 'Binary String',
+                        inputSize: size,
+                        algorithm: algo,
+                        durationMs: duration,
+                        memoryUsedBytes: resultSize,
+                        dataPointsCount: response.output.length,
+                        timestamp: new Date().toISOString()
+                    };
+
+                    newResults.push(result);
+                    setResults(prev => [...prev, result]);
+                }
+            }
+
+            // 3. Analog to Analog
+            for (const size of inputSizes) {
+                // Analog functions typically take fixed parameters, but we test them across "sizes" 
+                // to maintain consistent reporting structure, even if load might not scale linearly 
+                // with this 'size' parameter in the current implementation.
+
+                for (const algo of analogToAnalogAlgorithms) {
+                    setProgress(`Testing ${algo} with ${size} factor...`);
+                    await new Promise(r => setTimeout(r, 0));
+
+                    const startTime = performance.now();
+                    // Using fixed frequency/amplitude as the generator doesn't accept 'size'
+                    const response = await generateAnalogToAnalogSignal(5, 1, algo);
+                    const endTime = performance.now();
+                    const duration = endTime - startTime;
+
+                    const resultSize = new Blob([JSON.stringify(response)]).size;
+
+                    const result: BenchmarkResult = {
+                        inputType: 'Analog Signal',
+                        inputSize: size, // Nominal size for comparison
+                        algorithm: algo,
+                        durationMs: duration,
+                        memoryUsedBytes: resultSize,
+                        dataPointsCount: response.output.length,
+                        timestamp: new Date().toISOString()
+                    };
+
+                    newResults.push(result);
+                    setResults(prev => [...prev, result]);
+                }
+            }
+
         } catch (error) {
-            console.error("Benchmark failed:", error);
-            setProgressMsg("Failed");
+            console.error("Benchmark error:", error);
+            setProgress(`Error: ${error}`);
         } finally {
             setIsRunning(false);
+            setProgress('Benchmark Complete');
         }
     };
 
-    const handleExport = () => {
-        const jsonString = JSON.stringify(results, null, 2);
-        const blob = new Blob([jsonString], { type: 'application/json' });
+    const downloadReport = () => {
+        const json = JSON.stringify(results, null, 2);
+        const blob = new Blob([json], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `benchmark_report_${new Date().toISOString()}.json`;
-        document.body.appendChild(a);
+        a.download = `benchmark_report_${new Date().getTime()}.json`;
         a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-    };
-
-    const formatMemory = (bytes: number) => {
-        if (bytes === 0) return '0 B';
-        if (bytes < 1024) return `${bytes} B`;
-        if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(2)} KB`;
-        return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
     };
 
     return (
-        <div className="space-y-6">
-            <div className="bg-white rounded-lg shadow-md p-6">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-                    <div>
-                        <h2 className="text-xl font-bold text-gray-800">Comprehensive Benchmark</h2>
-                        <p className="text-gray-600 mt-1">
-                            Test all algorithms from small to large inputs.
-                        </p>
-                    </div>
-                    <div className="flex gap-2">
-                        {results.length > 0 && (
-                            <button
-                                onClick={handleExport}
-                                className="flex items-center gap-2 px-4 py-2 rounded-md font-medium text-blue-700 bg-blue-100 hover:bg-blue-200 transition-all border border-blue-200"
-                            >
-                                <Download size={18} />
-                                Report
-                            </button>
-                        )}
-                        <button
-                            onClick={handleRunBenchmark}
-                            disabled={isRunning}
-                            className={`flex items-center gap-2 px-6 py-2 rounded-md font-medium text-white transition-all ${isRunning
-                                ? 'bg-gray-400 cursor-not-allowed'
-                                : 'bg-green-600 hover:bg-green-700 shadow-md hover:shadow-lg'
-                                }`}
-                        >
-                            {isRunning ? (
-                                <>
-                                    <RotateCcw className="animate-spin" size={20} />
-                                    Running...
-                                </>
-                            ) : (
-                                <>
-                                    <Play size={20} />
-                                    Run All
-                                </>
-                            )}
-                        </button>
-                    </div>
+        <div className="bg-white rounded-lg shadow-lg p-6">
+            <div className="flex justify-between items-center mb-6">
+                <div>
+                    <h2 className="text-2xl font-bold text-gray-800">Performance Benchmark</h2>
+                    <p className="text-gray-600">Measure execution time and memory usage for signal processing algorithms.</p>
                 </div>
+                <div className="flex gap-4">
+                    <button
+                        onClick={runBenchmark}
+                        disabled={isRunning}
+                        className={`flex items-center gap-2 px-6 py-2 rounded-lg font-bold text-white transition-colors ${isRunning ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'
+                            }`}
+                    >
+                        <Play size={20} />
+                        {isRunning ? 'Running Tests...' : 'Start Benchmark'}
+                    </button>
 
-                {isRunning && (
-                    <div className="mb-4 p-3 bg-blue-50 text-blue-700 rounded-md text-sm font-medium animate-pulse border border-blue-100">
-                        {progressMsg}
-                    </div>
-                )}
+                    {results.length > 0 && (
+                        <button
+                            onClick={downloadReport}
+                            className="flex items-center gap-2 px-6 py-2 rounded-lg font-bold text-blue-600 border-2 border-blue-600 hover:bg-blue-50 transition-colors"
+                        >
+                            <Download size={20} />
+                            Export JSON
+                        </button>
+                    )}
+                </div>
+            </div>
 
-                <div className="overflow-x-auto max-h-[600px] overflow-y-auto">
-                    <table className="w-full border-collapse border border-gray-200 text-sm">
-                        <thead className="sticky top-0 bg-gray-50 z-10 shadow-sm">
-                            <tr className="text-left font-semibold text-gray-700 border-b border-gray-200">
-                                <th className="p-3 border-r border-gray-200">Algorithm</th>
-                                <th className="p-3 border-r border-gray-200">Category</th>
-                                <th className="p-3 border-r border-gray-200">Input Size</th>
-                                <th className="p-3 border-r border-gray-200">Time</th>
-                                <th className="p-3 border-r border-gray-200">Memory (Blob)</th>
-                                <th className="p-3">Data Points</th>
+            {progress && (
+                <div className="mb-4 p-3 bg-blue-50 text-blue-800 rounded-md text-sm font-medium">
+                    Status: {progress}
+                </div>
+            )}
+
+            {results.length > 0 && (
+                <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                            <tr>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Algorithm</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Input Type</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Input Size</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Duration (ms)</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data Points</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Result Size</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-gray-200">
-                            {results.length === 0 ? (
-                                <tr>
-                                    <td colSpan={6} className="p-12 text-center text-gray-500 italic">
-                                        No results. Run the benchmark to generate data.
+                        <tbody className="bg-white divide-y divide-gray-200">
+                            {results.map((r, i) => (
+                                <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{r.algorithm}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{r.inputType}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{r.inputSize}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{r.durationMs.toFixed(2)}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{r.dataPointsCount}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                        {r.memoryUsedBytes !== undefined ? `${(r.memoryUsedBytes / 1024).toFixed(2)} KB` : 'N/A'}
                                     </td>
                                 </tr>
-                            ) : (
-                                results.map((result, index) => (
-                                    <tr key={index} className="hover:bg-gray-50 transition-colors">
-                                        <td className="p-3 border-r border-gray-200 font-medium text-gray-800">{result.algorithm}</td>
-                                        <td className="p-3 border-r border-gray-200 text-gray-500 text-xs">{result.category}</td>
-                                        <td className="p-3 border-r border-gray-200 font-mono">{result.inputSize.toLocaleString()}</td>
-                                        <td className="p-3 border-r border-gray-200 font-mono font-bold text-blue-700">
-                                            {result.timeMs.toFixed(3)} ms
-                                        </td>
-                                        <td className="p-3 border-r border-gray-200 font-mono text-xs text-gray-700">
-                                            {formatMemory(result.memoryUsedBytes)}
-                                        </td>
-                                        <td className="p-3 font-mono text-gray-600">
-                                            {result.dataPointsCount.toLocaleString()}
-                                        </td>
-                                    </tr>
-                                ))
-                            )}
+                            ))}
                         </tbody>
                     </table>
                 </div>
-            </div>
+            )}
         </div>
     );
-}
+};
