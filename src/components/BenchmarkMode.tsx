@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { Play, Download } from 'lucide-react';
 import { generateDigitalToDigitalSignal } from '../utils/digitalToDigital';
-import { DigitalToDigitalAlgorithm } from '../types';
+import { generateDigitalToAnalogSignal } from '../utils/digitalToAnalog';
+import { generateAnalogToAnalogSignal } from '../utils/analogToAnalog';
+import { DigitalToDigitalAlgorithm, DigitalToAnalogAlgorithm, AnalogToAnalogAlgorithm } from '../types';
 
 // Helper to generate random binary string
 const generateBinaryString = (length: number): string => {
@@ -29,33 +31,37 @@ export const BenchmarkMode = () => {
 
         // Test Configurations
         const inputSizes = [100, 500, 1000, 5000]; // Small to Large
-        const algorithms: DigitalToDigitalAlgorithm[] = [
-            'NRZ-L',
-            'NRZ-I',
-            'Manchester',
-            'Differential Manchester',
-            'AMI',
-            'Pseudoternary'
+
+        const digitalToDigitalAlgorithms: DigitalToDigitalAlgorithm[] = [
+            'NRZ-L', 'NRZ-I', 'Manchester', 'Differential Manchester',
+            'AMI', 'Pseudoternary', 'B8ZS', 'HDB3'
+        ];
+
+        const digitalToAnalogAlgorithms: DigitalToAnalogAlgorithm[] = [
+            'ASK', 'FSK', 'PSK'
+        ];
+
+        const analogToAnalogAlgorithms: AnalogToAnalogAlgorithm[] = [
+            'AM', 'FM', 'PM'
         ];
 
         const newResults: BenchmarkResult[] = [];
 
         try {
+            // 1. Digital to Digital
             for (const size of inputSizes) {
                 const input = generateBinaryString(size);
 
-                for (const algo of algorithms) {
+                for (const algo of digitalToDigitalAlgorithms) {
                     setProgress(`Testing ${algo} with ${size} bits...`);
+                    // Yield to UI
+                    await new Promise(r => setTimeout(r, 0));
 
                     const startTime = performance.now();
-
                     const response = await generateDigitalToDigitalSignal(input, algo);
-
                     const endTime = performance.now();
                     const duration = endTime - startTime;
 
-                    // Estimate memory usage based on the size of the response data
-                    // This is a rough approximation of the data size in memory
                     const resultSize = new Blob([JSON.stringify(response)]).size;
 
                     const result: BenchmarkResult = {
@@ -69,12 +75,73 @@ export const BenchmarkMode = () => {
                     };
 
                     newResults.push(result);
-                    // Update results progressively
                     setResults(prev => [...prev, result]);
-
-                    console.log(`Benchmark: ${algo} (${size} bits) - ${duration.toFixed(2)}ms`);
                 }
             }
+
+            // 2. Digital to Analog
+            for (const size of inputSizes) {
+                const input = generateBinaryString(size);
+
+                for (const algo of digitalToAnalogAlgorithms) {
+                    setProgress(`Testing ${algo} with ${size} bits...`);
+                    await new Promise(r => setTimeout(r, 0));
+
+                    const startTime = performance.now();
+                    const response = await generateDigitalToAnalogSignal(input, algo);
+                    const endTime = performance.now();
+                    const duration = endTime - startTime;
+
+                    const resultSize = new Blob([JSON.stringify(response)]).size;
+
+                    const result: BenchmarkResult = {
+                        inputType: 'Binary String',
+                        inputSize: size,
+                        algorithm: algo,
+                        durationMs: duration,
+                        memoryUsedBytes: resultSize,
+                        dataPointsCount: response.output.length,
+                        timestamp: new Date().toISOString()
+                    };
+
+                    newResults.push(result);
+                    setResults(prev => [...prev, result]);
+                }
+            }
+
+            // 3. Analog to Analog
+            for (const size of inputSizes) {
+                // Analog functions typically take fixed parameters, but we test them across "sizes" 
+                // to maintain consistent reporting structure, even if load might not scale linearly 
+                // with this 'size' parameter in the current implementation.
+
+                for (const algo of analogToAnalogAlgorithms) {
+                    setProgress(`Testing ${algo} with ${size} factor...`);
+                    await new Promise(r => setTimeout(r, 0));
+
+                    const startTime = performance.now();
+                    // Using fixed frequency/amplitude as the generator doesn't accept 'size'
+                    const response = await generateAnalogToAnalogSignal(5, 1, algo);
+                    const endTime = performance.now();
+                    const duration = endTime - startTime;
+
+                    const resultSize = new Blob([JSON.stringify(response)]).size;
+
+                    const result: BenchmarkResult = {
+                        inputType: 'Analog Signal',
+                        inputSize: size, // Nominal size for comparison
+                        algorithm: algo,
+                        durationMs: duration,
+                        memoryUsedBytes: resultSize,
+                        dataPointsCount: response.output.length,
+                        timestamp: new Date().toISOString()
+                    };
+
+                    newResults.push(result);
+                    setResults(prev => [...prev, result]);
+                }
+            }
+
         } catch (error) {
             console.error("Benchmark error:", error);
             setProgress(`Error: ${error}`);
@@ -136,7 +203,8 @@ export const BenchmarkMode = () => {
                         <thead className="bg-gray-50">
                             <tr>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Algorithm</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Input Size (bits)</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Input Type</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Input Size</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Duration (ms)</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data Points</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Result Size</th>
@@ -146,6 +214,7 @@ export const BenchmarkMode = () => {
                             {results.map((r, i) => (
                                 <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{r.algorithm}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{r.inputType}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{r.inputSize}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{r.durationMs.toFixed(2)}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{r.dataPointsCount}</td>
