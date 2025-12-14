@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { Radio, Waves, Activity, Signal } from 'lucide-react';
+import { Radio, Waves, Activity, Signal, Gauge } from 'lucide-react';
 import { DigitalToDigitalMode } from './components/DigitalToDigitalMode';
 import { DigitalToAnalogMode } from './components/DigitalToAnalogMode';
 import { AnalogToDigitalMode } from './components/AnalogToDigitalMode';
 import { AnalogToAnalogMode } from './components/AnalogToAnalogMode';
+import { BenchmarkMode } from './components/BenchmarkMode';
 import { SimulationMode } from './types';
 
 function App() {
@@ -34,6 +35,12 @@ function App() {
       icon: Signal,
       description: 'Carrier Mod.',
     },
+    {
+      id: 'benchmark' as const,
+      name: 'Benchmark',
+      icon: Gauge,
+      description: 'Performance',
+    },
   ];
 
   return (
@@ -61,11 +68,10 @@ function App() {
                 <button
                   key={mode.id}
                   onClick={() => setActiveMode(mode.id)}
-                  className={`flex items-center gap-2 px-4 py-3 rounded-md font-medium transition-all ${
-                    activeMode === mode.id
+                  className={`flex items-center gap-2 px-4 py-3 rounded-md font-medium transition-all ${activeMode === mode.id
                       ? 'bg-blue-600 text-white shadow-md'
                       : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
+                    }`}
                 >
                   <Icon size={20} />
                   <div className="text-left">
@@ -83,6 +89,7 @@ function App() {
           {activeMode === 'digital-to-analog' && <DigitalToAnalogMode />}
           {activeMode === 'analog-to-digital' && <AnalogToDigitalMode />}
           {activeMode === 'analog-to-analog' && <AnalogToAnalogMode />}
+          {activeMode === 'benchmark' && <BenchmarkMode />}
         </div>
       </div>
 
