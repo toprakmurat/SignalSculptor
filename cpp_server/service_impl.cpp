@@ -1,12 +1,14 @@
 #include "service_impl.h"
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <iostream>
 #include <vector>
 
-#ifndef M_PI
-#define M_PI 3.14159265358979323846
-#endif
+#include <numbers>
+
+// Use C++20 mathematical constants
+constexpr double PI = 3.14159265358979323846;
 
 using grpc::ServerContext;
 using grpc::Status;
@@ -63,6 +65,7 @@ double get_input_value_at_time(const std::vector<Point> &input_signal,
 Status SignalConversionServiceImpl::AnalogToAnalog(
     ServerContext *context, const AnalogToAnalogRequest *request,
     SignalResponse *reply) {
+  auto start_time = std::chrono::high_resolution_clock::now();
   double msg_freq = request->message_frequency();
   double msg_amp = request->message_amplitude();
 
@@ -76,7 +79,7 @@ Status SignalConversionServiceImpl::AnalogToAnalog(
   int total_samples = static_cast<int>(duration * samples_per_sec);
 
   std::vector<Point> input_signal(total_samples);
-  double two_pi_freq = 2 * M_PI * msg_freq;
+  const double two_pi_freq = 2 * PI * msg_freq;
   double inv_samples = 1.0 / samples_per_sec;
 
   for (int i = 0; i < total_samples; i++) {
@@ -87,8 +90,8 @@ Status SignalConversionServiceImpl::AnalogToAnalog(
 
   std::vector<Point> transmitted_signal(total_samples);
   double carrier_freq = msg_freq * 5;
-  double carrier_amp = 1.0;
-  double two_pi_carrier = 2 * M_PI * carrier_freq;
+  constexpr double carrier_amp = 1.0;
+  const double two_pi_carrier = 2 * PI * carrier_freq;
 
   switch (request->algorithm()) {
   case AnalogToAnalogRequest::AM: {
@@ -108,7 +111,7 @@ Status SignalConversionServiceImpl::AnalogToAnalog(
     double freq_dev = carrier_freq * 0.5;
     double inv_msg_amp = 1.0 / msg_amp;
     double inv_msg_freq = 1.0 / msg_freq;
-    double two_pi_dev = 2 * M_PI * freq_dev;
+    const double two_pi_dev = 2 * PI * freq_dev;
 
     for (int i = 0; i < total_samples; i++) {
       double t = input_signal[i].x;
@@ -131,7 +134,7 @@ Status SignalConversionServiceImpl::AnalogToAnalog(
     break;
   }
   case AnalogToAnalogRequest::PM: {
-    double phase_dev = M_PI / 2.0;
+    constexpr double phase_dev = PI / 2.0;
     double inv_msg_amp = 1.0 / msg_amp;
     for (int i = 0; i < total_samples; i++) {
       double t = input_signal[i].x;
@@ -151,6 +154,10 @@ Status SignalConversionServiceImpl::AnalogToAnalog(
   set_data_points(input_signal,
                   reply->mutable_output()); // Output same as input for A-A
 
+  auto end_time = std::chrono::high_resolution_clock::now();
+  reply->set_calculation_time_ms(
+      std::chrono::duration<double, std::milli>(end_time - start_time).count());
+
   return Status::OK;
 }
 
@@ -159,6 +166,7 @@ Status SignalConversionServiceImpl::AnalogToAnalog(
 Status SignalConversionServiceImpl::AnalogToDigital(
     ServerContext *context, const AnalogToDigitalRequest *request,
     SignalResponse *reply) {
+  auto start_time = std::chrono::high_resolution_clock::now();
   double freq = request->frequency();
   double amp = request->amplitude();
 
@@ -170,7 +178,7 @@ Status SignalConversionServiceImpl::AnalogToDigital(
   int total_samples = static_cast<int>(duration * samples_per_sec);
 
   std::vector<Point> input_signal(total_samples);
-  double two_pi_freq = 2 * M_PI * freq;
+  const double two_pi_freq = 2 * PI * freq;
 
   for (int i = 0; i < total_samples; i++) {
     double t = i * (1.0 / samples_per_sec);
@@ -179,7 +187,9 @@ Status SignalConversionServiceImpl::AnalogToDigital(
   }
 
   std::vector<Point> transmitted;
+  transmitted.reserve(total_samples);
   std::vector<Point> output;
+  output.reserve(total_samples);
 
   if (request->has_pcm()) {
     const auto &config = request->pcm();
@@ -262,6 +272,10 @@ Status SignalConversionServiceImpl::AnalogToDigital(
   set_data_points(transmitted, reply->mutable_transmitted());
   set_data_points(output, reply->mutable_output());
 
+  auto end_time = std::chrono::high_resolution_clock::now();
+  reply->set_calculation_time_ms(
+      std::chrono::duration<double, std::milli>(end_time - start_time).count());
+
   return Status::OK;
 }
 
@@ -270,30 +284,26 @@ Status SignalConversionServiceImpl::AnalogToDigital(
 Status SignalConversionServiceImpl::DigitalToAnalog(
     ServerContext *context, const DigitalToAnalogRequest *request,
     SignalResponse *reply) {
-  std::string binary = request->binary_input();
+  auto start_time = std::chrono::high_resolution_clock::now();
+  std::string_view binary = request->binary_input();
   if (binary.empty())
     return Status(grpc::INVALID_ARGUMENT, "Empty input");
 
-  std::vector<int> bits;
   for (char c : binary) {
-    if (c == '0')
-      bits.push_back(0);
-    else if (c == '1')
-      bits.push_back(1);
-    else
+    if (c != '0' && c != '1')
       return Status(grpc::INVALID_ARGUMENT, "Invalid binary input");
   }
 
-  double bit_duration = 1.0;
-  int samples_per_bit = 100;
-  int num_bits = bits.size();
+  constexpr double bit_duration = 1.0;
+  constexpr int samples_per_bit = 100;
+  size_t num_bits = binary.size();
 
   std::vector<Point> input_signal;
   input_signal.reserve(num_bits * 2);
-  for (int i = 0; i < num_bits; i++) {
+  for (size_t i = 0; i < num_bits; i++) {
     double x1 = i * bit_duration;
     double x2 = (i + 1) * bit_duration;
-    double y = bits[i];
+    double y = (binary[i] == '1') ? 1.0 : 0.0;
     input_signal.push_back({x1, y});
     input_signal.push_back({x2, y});
   }
@@ -303,12 +313,12 @@ Status SignalConversionServiceImpl::DigitalToAnalog(
 
   switch (request->algorithm()) {
   case DigitalToAnalogRequest::ASK: {
-    double carrier_freq = 5.0;
-    double two_pi_carrier = 2 * M_PI * carrier_freq;
-    double time_step = bit_duration / samples_per_bit;
+    constexpr double carrier_freq = 5.0;
+    constexpr double two_pi_carrier = 2 * PI * carrier_freq;
+    constexpr double time_step = bit_duration / samples_per_bit;
 
-    for (int i = 0; i < num_bits; i++) {
-      double amplitude = (bits[i] == 1) ? 1.0 : 0.2;
+    for (size_t i = 0; i < num_bits; i++) {
+      double amplitude = (binary[i] == '1') ? 1.0 : 0.2;
       double base_time = i * bit_duration;
       for (int j = 0; j <= samples_per_bit; j++) {
         double t = base_time + j * time_step;
@@ -319,15 +329,15 @@ Status SignalConversionServiceImpl::DigitalToAnalog(
     break;
   }
   case DigitalToAnalogRequest::FSK: {
-    double freq0 = 3.0;
-    double freq1 = 7.0;
-    double two_pi_freq0 = 2 * M_PI * freq0;
-    double two_pi_freq1 = 2 * M_PI * freq1;
-    double time_step = bit_duration / samples_per_bit;
+    constexpr double freq0 = 3.0;
+    constexpr double freq1 = 7.0;
+    constexpr double two_pi_freq0 = 2 * PI * freq0;
+    constexpr double two_pi_freq1 = 2 * PI * freq1;
+    constexpr double time_step = bit_duration / samples_per_bit;
 
-    for (int i = 0; i < num_bits; i++) {
+    for (size_t i = 0; i < num_bits; i++) {
       double base_time = i * bit_duration;
-      double two_pi_freq = (bits[i] == 1) ? two_pi_freq1 : two_pi_freq0;
+      double two_pi_freq = (binary[i] == '1') ? two_pi_freq1 : two_pi_freq0;
       for (int j = 0; j <= samples_per_bit; j++) {
         double t = base_time + j * time_step;
         double y = std::sin(two_pi_freq * t);
@@ -337,13 +347,13 @@ Status SignalConversionServiceImpl::DigitalToAnalog(
     break;
   }
   case DigitalToAnalogRequest::PSK: {
-    double carrier_freq = 5.0;
-    double two_pi_carrier = 2 * M_PI * carrier_freq;
-    double time_step = bit_duration / samples_per_bit;
+    constexpr double carrier_freq = 5.0;
+    constexpr double two_pi_carrier = 2 * PI * carrier_freq;
+    constexpr double time_step = bit_duration / samples_per_bit;
 
-    for (int i = 0; i < num_bits; i++) {
+    for (size_t i = 0; i < num_bits; i++) {
       double base_time = i * bit_duration;
-      double phase_shift = (bits[i] == 1) ? 0.0 : M_PI;
+      double phase_shift = (binary[i] == '1') ? 0.0 : PI;
       for (int j = 0; j <= samples_per_bit; j++) {
         double t = base_time + j * time_step;
         double y = std::sin(two_pi_carrier * t + phase_shift);
@@ -360,6 +370,10 @@ Status SignalConversionServiceImpl::DigitalToAnalog(
   set_data_points(transmitted, reply->mutable_transmitted());
   set_data_points(input_signal, reply->mutable_output());
 
+  auto end_time = std::chrono::high_resolution_clock::now();
+  reply->set_calculation_time_ms(
+      std::chrono::duration<double, std::milli>(end_time - start_time).count());
+
   return Status::OK;
 }
 
@@ -368,37 +382,36 @@ Status SignalConversionServiceImpl::DigitalToAnalog(
 Status SignalConversionServiceImpl::DigitalToDigital(
     ServerContext *context, const DigitalToDigitalRequest *request,
     SignalResponse *reply) {
-  std::string binary = request->binary_input();
+  auto start_time = std::chrono::high_resolution_clock::now();
+  std::string_view binary = request->binary_input();
   if (binary.empty())
     return Status(grpc::INVALID_ARGUMENT, "Empty input");
 
-  std::vector<int> bits;
   for (char c : binary) {
-    if (c == '0')
-      bits.push_back(0);
-    else if (c == '1')
-      bits.push_back(1);
-    else
+    if (c != '0' && c != '1')
       return Status(grpc::INVALID_ARGUMENT, "Invalid binary input");
   }
 
-  double bit_duration = 1.0;
-  int num_bits = bits.size();
+  constexpr double bit_duration = 1.0;
+  size_t num_bits = binary.size();
 
   std::vector<Point> input_signal;
-  for (int i = 0; i < num_bits; i++) {
+  input_signal.reserve(num_bits * 2);
+  for (size_t i = 0; i < num_bits; i++) {
     double x1 = i * bit_duration;
     double x2 = (i + 1) * bit_duration;
-    input_signal.push_back({x1, (double)bits[i]});
-    input_signal.push_back({x2, (double)bits[i]});
+    double val = (binary[i] == '1') ? 1.0 : 0.0;
+    input_signal.push_back({x1, val});
+    input_signal.push_back({x2, val});
   }
 
   std::vector<Point> transmitted;
+  transmitted.reserve(num_bits * 2);
 
   switch (request->algorithm()) {
   case DigitalToDigitalRequest::NRZ_L: {
-    for (int i = 0; i < num_bits; i++) {
-      double voltage = (bits[i] == 0) ? 1.0 : -1.0;
+    for (size_t i = 0; i < num_bits; i++) {
+      double voltage = (binary[i] == '0') ? 1.0 : -1.0;
       transmitted.push_back({i * bit_duration, voltage});
       transmitted.push_back({(i + 1) * bit_duration, voltage});
     }
@@ -406,8 +419,8 @@ Status SignalConversionServiceImpl::DigitalToDigital(
   }
   case DigitalToDigitalRequest::NRZ_I: {
     double current_level = 1.0;
-    for (int i = 0; i < num_bits; i++) {
-      if (bits[i] == 1)
+    for (size_t i = 0; i < num_bits; i++) {
+      if (binary[i] == '1')
         current_level = -current_level;
       transmitted.push_back({i * bit_duration, current_level});
       transmitted.push_back({(i + 1) * bit_duration, current_level});
@@ -415,11 +428,11 @@ Status SignalConversionServiceImpl::DigitalToDigital(
     break;
   }
   case DigitalToDigitalRequest::MANCHESTER: {
-    for (int i = 0; i < num_bits; i++) {
+    for (size_t i = 0; i < num_bits; i++) {
       double base = i * bit_duration;
       double mid = (i + 0.5) * bit_duration;
       double end = (i + 1) * bit_duration;
-      if (bits[i] == 0) { // High to low
+      if (binary[i] == '0') { // High to low
         transmitted.push_back({base, 1.0});
         transmitted.push_back({mid, 1.0});
         transmitted.push_back({mid, -1.0});
@@ -435,8 +448,8 @@ Status SignalConversionServiceImpl::DigitalToDigital(
   }
   case DigitalToDigitalRequest::DIFFERENTIAL_MANCHESTER: {
     double current_level = 1.0;
-    for (int i = 0; i < num_bits; i++) {
-      if (bits[i] == 0)
+    for (size_t i = 0; i < num_bits; i++) {
+      if (binary[i] == '0')
         current_level = -current_level;
 
       double base = i * bit_duration;
@@ -455,9 +468,9 @@ Status SignalConversionServiceImpl::DigitalToDigital(
   }
   case DigitalToDigitalRequest::AMI: {
     double last_one_polarity = -1.0;
-    for (int i = 0; i < num_bits; i++) {
+    for (size_t i = 0; i < num_bits; i++) {
       double voltage = 0;
-      if (bits[i] == 1) {
+      if (binary[i] == '1') {
         last_one_polarity = -last_one_polarity;
         voltage = last_one_polarity;
       }
@@ -468,9 +481,9 @@ Status SignalConversionServiceImpl::DigitalToDigital(
   }
   case DigitalToDigitalRequest::PSEUDOTERNARY: {
     double last_zero_polarity = -1.0;
-    for (int i = 0; i < num_bits; i++) {
+    for (size_t i = 0; i < num_bits; i++) {
       double voltage = 0;
-      if (bits[i] == 0) {
+      if (binary[i] == '0') {
         last_zero_polarity = -last_zero_polarity;
         voltage = last_zero_polarity;
       }
@@ -481,12 +494,12 @@ Status SignalConversionServiceImpl::DigitalToDigital(
   }
   case DigitalToDigitalRequest::B8ZS: {
     double last_one_polarity = -1.0;
-    for (int i = 0; i < num_bits; i++) {
+    for (size_t i = 0; i < num_bits; i++) {
       // Check 8 zeros
       bool is_eight_zeros = true;
       if (i + 7 < num_bits) {
         for (int j = 0; j < 8; j++)
-          if (bits[i + j] != 0)
+          if (binary[i + j] != '0')
             is_eight_zeros = false;
       } else {
         is_eight_zeros = false;
@@ -508,7 +521,7 @@ Status SignalConversionServiceImpl::DigitalToDigital(
         i += 7;
       } else {
         double voltage = 0;
-        if (bits[i] == 1) {
+        if (binary[i] == '1') {
           last_one_polarity = -last_one_polarity;
           voltage = last_one_polarity;
         }
@@ -522,11 +535,11 @@ Status SignalConversionServiceImpl::DigitalToDigital(
     double last_one_polarity = -1.0;
     int ones_count = 0;
 
-    for (int i = 0; i < num_bits; i++) {
+    for (size_t i = 0; i < num_bits; i++) {
       bool is_four_zeros = true;
       if (i + 3 < num_bits) {
         for (int j = 0; j < 4; j++)
-          if (bits[i + j] != 0)
+          if (binary[i + j] != '0')
             is_four_zeros = false;
       } else {
         is_four_zeros = false;
@@ -556,7 +569,7 @@ Status SignalConversionServiceImpl::DigitalToDigital(
         i += 3;
       } else {
         double voltage = 0;
-        if (bits[i] == 1) {
+        if (binary[i] == '1') {
           last_one_polarity = -last_one_polarity;
           voltage = last_one_polarity;
           ones_count++;
@@ -574,6 +587,10 @@ Status SignalConversionServiceImpl::DigitalToDigital(
   set_data_points(input_signal, reply->mutable_input());
   set_data_points(transmitted, reply->mutable_transmitted());
   set_data_points(input_signal, reply->mutable_output());
+
+  auto end_time = std::chrono::high_resolution_clock::now();
+  reply->set_calculation_time_ms(
+      std::chrono::duration<double, std::milli>(end_time - start_time).count());
 
   return Status::OK;
 }

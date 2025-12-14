@@ -7,7 +7,7 @@ export async function generateDigitalToDigitalSignal(
   algorithm: DigitalToDigitalAlgorithm,
   startBit?: number,
   endBit?: number
-): Promise<{ input: DataPoint[]; transmitted: DataPoint[]; output: DataPoint[] }> {
+): Promise<{ input: DataPoint[]; transmitted: DataPoint[]; output: DataPoint[]; calculationTimeMs: number }> {
   let algo = DigitalToDigitalRequest_Algorithm.NRZ_L;
   switch (algorithm) {
     case 'NRZ-L': algo = DigitalToDigitalRequest_Algorithm.NRZ_L; break;
@@ -30,7 +30,8 @@ export async function generateDigitalToDigitalSignal(
   return {
     input: response.input,
     transmitted: response.transmitted,
-    output: response.output
+    output: response.output,
+    calculationTimeMs: response.calculationTimeMs
   };
 }
 

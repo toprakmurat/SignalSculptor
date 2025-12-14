@@ -19,6 +19,7 @@ export interface SignalResponse {
   input: DataPoint[];
   transmitted: DataPoint[];
   output: DataPoint[];
+  calculationTimeMs: number;
 }
 
 export interface AnalogToAnalogRequest {
@@ -266,10 +267,10 @@ export const DataPoint: MessageFns<DataPoint> = {
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<DataPoint>, I>>(base?: I): DataPoint {
-    return DataPoint.fromPartial(base ?? ({} as any));
+  create(base?: DeepPartial<DataPoint>): DataPoint {
+    return DataPoint.fromPartial(base ?? {});
   },
-  fromPartial<I extends Exact<DeepPartial<DataPoint>, I>>(object: I): DataPoint {
+  fromPartial(object: DeepPartial<DataPoint>): DataPoint {
     const message = createBaseDataPoint();
     message.x = object.x ?? 0;
     message.y = object.y ?? 0;
@@ -278,7 +279,7 @@ export const DataPoint: MessageFns<DataPoint> = {
 };
 
 function createBaseSignalResponse(): SignalResponse {
-  return { input: [], transmitted: [], output: [] };
+  return { input: [], transmitted: [], output: [], calculationTimeMs: 0 };
 }
 
 export const SignalResponse: MessageFns<SignalResponse> = {
@@ -291,6 +292,9 @@ export const SignalResponse: MessageFns<SignalResponse> = {
     }
     for (const v of message.output) {
       DataPoint.encode(v!, writer.uint32(26).fork()).join();
+    }
+    if (message.calculationTimeMs !== 0) {
+      writer.uint32(33).double(message.calculationTimeMs);
     }
     return writer;
   },
@@ -326,6 +330,14 @@ export const SignalResponse: MessageFns<SignalResponse> = {
           message.output.push(DataPoint.decode(reader, reader.uint32()));
           continue;
         }
+        case 4: {
+          if (tag !== 33) {
+            break;
+          }
+
+          message.calculationTimeMs = reader.double();
+          continue;
+        }
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -342,6 +354,7 @@ export const SignalResponse: MessageFns<SignalResponse> = {
         ? object.transmitted.map((e: any) => DataPoint.fromJSON(e))
         : [],
       output: globalThis.Array.isArray(object?.output) ? object.output.map((e: any) => DataPoint.fromJSON(e)) : [],
+      calculationTimeMs: isSet(object.calculationTimeMs) ? globalThis.Number(object.calculationTimeMs) : 0,
     };
   },
 
@@ -356,17 +369,21 @@ export const SignalResponse: MessageFns<SignalResponse> = {
     if (message.output?.length) {
       obj.output = message.output.map((e) => DataPoint.toJSON(e));
     }
+    if (message.calculationTimeMs !== 0) {
+      obj.calculationTimeMs = message.calculationTimeMs;
+    }
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<SignalResponse>, I>>(base?: I): SignalResponse {
-    return SignalResponse.fromPartial(base ?? ({} as any));
+  create(base?: DeepPartial<SignalResponse>): SignalResponse {
+    return SignalResponse.fromPartial(base ?? {});
   },
-  fromPartial<I extends Exact<DeepPartial<SignalResponse>, I>>(object: I): SignalResponse {
+  fromPartial(object: DeepPartial<SignalResponse>): SignalResponse {
     const message = createBaseSignalResponse();
     message.input = object.input?.map((e) => DataPoint.fromPartial(e)) || [];
     message.transmitted = object.transmitted?.map((e) => DataPoint.fromPartial(e)) || [];
     message.output = object.output?.map((e) => DataPoint.fromPartial(e)) || [];
+    message.calculationTimeMs = object.calculationTimeMs ?? 0;
     return message;
   },
 };
@@ -451,10 +468,10 @@ export const AnalogToAnalogRequest: MessageFns<AnalogToAnalogRequest> = {
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<AnalogToAnalogRequest>, I>>(base?: I): AnalogToAnalogRequest {
-    return AnalogToAnalogRequest.fromPartial(base ?? ({} as any));
+  create(base?: DeepPartial<AnalogToAnalogRequest>): AnalogToAnalogRequest {
+    return AnalogToAnalogRequest.fromPartial(base ?? {});
   },
-  fromPartial<I extends Exact<DeepPartial<AnalogToAnalogRequest>, I>>(object: I): AnalogToAnalogRequest {
+  fromPartial(object: DeepPartial<AnalogToAnalogRequest>): AnalogToAnalogRequest {
     const message = createBaseAnalogToAnalogRequest();
     message.messageFrequency = object.messageFrequency ?? 0;
     message.messageAmplitude = object.messageAmplitude ?? 0;
@@ -560,10 +577,10 @@ export const AnalogToDigitalRequest: MessageFns<AnalogToDigitalRequest> = {
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<AnalogToDigitalRequest>, I>>(base?: I): AnalogToDigitalRequest {
-    return AnalogToDigitalRequest.fromPartial(base ?? ({} as any));
+  create(base?: DeepPartial<AnalogToDigitalRequest>): AnalogToDigitalRequest {
+    return AnalogToDigitalRequest.fromPartial(base ?? {});
   },
-  fromPartial<I extends Exact<DeepPartial<AnalogToDigitalRequest>, I>>(object: I): AnalogToDigitalRequest {
+  fromPartial(object: DeepPartial<AnalogToDigitalRequest>): AnalogToDigitalRequest {
     const message = createBaseAnalogToDigitalRequest();
     message.frequency = object.frequency ?? 0;
     message.amplitude = object.amplitude ?? 0;
@@ -642,14 +659,10 @@ export const AnalogToDigitalRequest_PCMConfig: MessageFns<AnalogToDigitalRequest
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<AnalogToDigitalRequest_PCMConfig>, I>>(
-    base?: I,
-  ): AnalogToDigitalRequest_PCMConfig {
-    return AnalogToDigitalRequest_PCMConfig.fromPartial(base ?? ({} as any));
+  create(base?: DeepPartial<AnalogToDigitalRequest_PCMConfig>): AnalogToDigitalRequest_PCMConfig {
+    return AnalogToDigitalRequest_PCMConfig.fromPartial(base ?? {});
   },
-  fromPartial<I extends Exact<DeepPartial<AnalogToDigitalRequest_PCMConfig>, I>>(
-    object: I,
-  ): AnalogToDigitalRequest_PCMConfig {
+  fromPartial(object: DeepPartial<AnalogToDigitalRequest_PCMConfig>): AnalogToDigitalRequest_PCMConfig {
     const message = createBaseAnalogToDigitalRequest_PCMConfig();
     message.samplingRate = object.samplingRate ?? 0;
     message.quantizationLevels = object.quantizationLevels ?? 0;
@@ -725,13 +738,13 @@ export const AnalogToDigitalRequest_DeltaModulationConfig: MessageFns<AnalogToDi
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<AnalogToDigitalRequest_DeltaModulationConfig>, I>>(
-    base?: I,
+  create(
+    base?: DeepPartial<AnalogToDigitalRequest_DeltaModulationConfig>,
   ): AnalogToDigitalRequest_DeltaModulationConfig {
-    return AnalogToDigitalRequest_DeltaModulationConfig.fromPartial(base ?? ({} as any));
+    return AnalogToDigitalRequest_DeltaModulationConfig.fromPartial(base ?? {});
   },
-  fromPartial<I extends Exact<DeepPartial<AnalogToDigitalRequest_DeltaModulationConfig>, I>>(
-    object: I,
+  fromPartial(
+    object: DeepPartial<AnalogToDigitalRequest_DeltaModulationConfig>,
   ): AnalogToDigitalRequest_DeltaModulationConfig {
     const message = createBaseAnalogToDigitalRequest_DeltaModulationConfig();
     message.samplingRate = object.samplingRate ?? 0;
@@ -805,10 +818,10 @@ export const DigitalToAnalogRequest: MessageFns<DigitalToAnalogRequest> = {
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<DigitalToAnalogRequest>, I>>(base?: I): DigitalToAnalogRequest {
-    return DigitalToAnalogRequest.fromPartial(base ?? ({} as any));
+  create(base?: DeepPartial<DigitalToAnalogRequest>): DigitalToAnalogRequest {
+    return DigitalToAnalogRequest.fromPartial(base ?? {});
   },
-  fromPartial<I extends Exact<DeepPartial<DigitalToAnalogRequest>, I>>(object: I): DigitalToAnalogRequest {
+  fromPartial(object: DeepPartial<DigitalToAnalogRequest>): DigitalToAnalogRequest {
     const message = createBaseDigitalToAnalogRequest();
     message.binaryInput = object.binaryInput ?? "";
     message.algorithm = object.algorithm ?? 0;
@@ -881,16 +894,56 @@ export const DigitalToDigitalRequest: MessageFns<DigitalToDigitalRequest> = {
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<DigitalToDigitalRequest>, I>>(base?: I): DigitalToDigitalRequest {
-    return DigitalToDigitalRequest.fromPartial(base ?? ({} as any));
+  create(base?: DeepPartial<DigitalToDigitalRequest>): DigitalToDigitalRequest {
+    return DigitalToDigitalRequest.fromPartial(base ?? {});
   },
-  fromPartial<I extends Exact<DeepPartial<DigitalToDigitalRequest>, I>>(object: I): DigitalToDigitalRequest {
+  fromPartial(object: DeepPartial<DigitalToDigitalRequest>): DigitalToDigitalRequest {
     const message = createBaseDigitalToDigitalRequest();
     message.binaryInput = object.binaryInput ?? "";
     message.algorithm = object.algorithm ?? 0;
     return message;
   },
 };
+
+export type SignalConversionDefinition = typeof SignalConversionDefinition;
+export const SignalConversionDefinition = {
+  name: "SignalConversion",
+  fullName: "signal_scope.SignalConversion",
+  methods: {
+    analogToAnalog: {
+      name: "AnalogToAnalog",
+      requestType: AnalogToAnalogRequest,
+      requestStream: false,
+      responseType: SignalResponse,
+      responseStream: false,
+      options: {},
+    },
+    analogToDigital: {
+      name: "AnalogToDigital",
+      requestType: AnalogToDigitalRequest,
+      requestStream: false,
+      responseType: SignalResponse,
+      responseStream: false,
+      options: {},
+    },
+    digitalToAnalog: {
+      name: "DigitalToAnalog",
+      requestType: DigitalToAnalogRequest,
+      requestStream: false,
+      responseType: SignalResponse,
+      responseStream: false,
+      options: {},
+    },
+    digitalToDigital: {
+      name: "DigitalToDigital",
+      requestType: DigitalToDigitalRequest,
+      requestStream: false,
+      responseType: SignalResponse,
+      responseStream: false,
+      options: {},
+    },
+  },
+} as const;
 
 export interface SignalConversionServiceImplementation<CallContextExt = {}> {
   analogToAnalog(
@@ -938,10 +991,6 @@ export type DeepPartial<T> = T extends Builtin ? T
   : T extends {} ? { [K in keyof T]?: DeepPartial<T[K]> }
   : Partial<T>;
 
-type KeysOfUnion<T> = T extends T ? keyof T : never;
-export type Exact<P, I extends P> = P extends Builtin ? P
-  : P & { [K in keyof P]: Exact<P[K], I[K]> } & { [K in Exclude<keyof I, KeysOfUnion<P>>]: never };
-
 function isSet(value: any): boolean {
   return value !== null && value !== undefined;
 }
@@ -951,6 +1000,6 @@ export interface MessageFns<T> {
   decode(input: BinaryReader | Uint8Array, length?: number): T;
   fromJSON(object: any): T;
   toJSON(message: T): unknown;
-  create<I extends Exact<DeepPartial<T>, I>>(base?: I): T;
-  fromPartial<I extends Exact<DeepPartial<T>, I>>(object: I): T;
+  create(base?: DeepPartial<T>): T;
+  fromPartial(object: DeepPartial<T>): T;
 }

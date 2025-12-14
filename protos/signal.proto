@@ -18,6 +18,7 @@ message SignalResponse {
   repeated DataPoint input = 1;
   repeated DataPoint transmitted = 2;
   repeated DataPoint output = 3;
+  double calculation_time_ms = 4;
 }
 
 message AnalogToAnalogRequest {

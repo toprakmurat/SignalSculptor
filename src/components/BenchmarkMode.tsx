@@ -30,7 +30,7 @@ export const BenchmarkMode = () => {
         setResults([]);
 
         // Test Configurations
-        const inputSizes = [100, 500, 1000, 5000]; // Small to Large
+        const inputSizes = [1000, 5000, 10000, 50000]; // Small to Large
 
         const digitalToDigitalAlgorithms: DigitalToDigitalAlgorithm[] = [
             'NRZ-L', 'NRZ-I', 'Manchester', 'Differential Manchester',
@@ -57,10 +57,8 @@ export const BenchmarkMode = () => {
                     // Yield to UI
                     await new Promise(r => setTimeout(r, 0));
 
-                    const startTime = performance.now();
                     const response = await generateDigitalToDigitalSignal(input, algo);
-                    const endTime = performance.now();
-                    const duration = endTime - startTime;
+                    const duration = response.calculationTimeMs;
 
                     const resultSize = new Blob([JSON.stringify(response)]).size;
 
@@ -87,10 +85,8 @@ export const BenchmarkMode = () => {
                     setProgress(`Testing ${algo} with ${size} bits...`);
                     await new Promise(r => setTimeout(r, 0));
 
-                    const startTime = performance.now();
                     const response = await generateDigitalToAnalogSignal(input, algo);
-                    const endTime = performance.now();
-                    const duration = endTime - startTime;
+                    const duration = response.calculationTimeMs;
 
                     const resultSize = new Blob([JSON.stringify(response)]).size;
 
@@ -119,11 +115,8 @@ export const BenchmarkMode = () => {
                     setProgress(`Testing ${algo} with ${size} factor...`);
                     await new Promise(r => setTimeout(r, 0));
 
-                    const startTime = performance.now();
-                    // Using fixed frequency/amplitude as the generator doesn't accept 'size'
                     const response = await generateAnalogToAnalogSignal(5, 1, algo);
-                    const endTime = performance.now();
-                    const duration = endTime - startTime;
+                    const duration = response.calculationTimeMs;
 
                     const resultSize = new Blob([JSON.stringify(response)]).size;
 

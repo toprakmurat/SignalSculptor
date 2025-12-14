@@ -7,7 +7,7 @@ export async function generateDigitalToAnalogSignal(
   algorithm: DigitalToAnalogAlgorithm,
   startBit?: number,
   endBit?: number
-): Promise<{ input: DataPoint[]; transmitted: DataPoint[]; output: DataPoint[] }> {
+): Promise<{ input: DataPoint[]; transmitted: DataPoint[]; output: DataPoint[]; calculationTimeMs: number }> {
   let algo = DigitalToAnalogRequest_Algorithm.ASK;
   if (algorithm === 'FSK') algo = DigitalToAnalogRequest_Algorithm.FSK;
   if (algorithm === 'PSK') algo = DigitalToAnalogRequest_Algorithm.PSK;
@@ -22,7 +22,8 @@ export async function generateDigitalToAnalogSignal(
   return {
     input: response.input,
     transmitted: response.transmitted,
-    output: response.output
+    output: response.output,
+    calculationTimeMs: response.calculationTimeMs
   };
 }
 
