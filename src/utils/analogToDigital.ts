@@ -1,6 +1,5 @@
-import { DataPoint, AnalogToDigitalConfig, PCMConfig, DeltaModulationConfig } from '../types';
-import { grpcClient } from '../api/grpc_client';
-import { AnalogToDigitalRequest, AnalogToDigitalRequest_PCMConfig, AnalogToDigitalRequest_DeltaModulationConfig } from '../generated/signal';
+import { DataPoint, AnalogToDigitalConfig } from '../types';
+import { analogToDigitalPCMWasm, analogToDigitalDMWasm } from '../api/wasm_client';
 
 export async function generateAnalogToDigitalSignal(
   frequency: number,
@@ -9,34 +8,12 @@ export async function generateAnalogToDigitalSignal(
   inputSignal?: DataPoint[]
 ): Promise<{ input: DataPoint[]; transmitted: DataPoint[]; output: DataPoint[] }> {
 
-  let pcmConfig: AnalogToDigitalRequest_PCMConfig | undefined;
-  let deltaConfig: AnalogToDigitalRequest_DeltaModulationConfig | undefined;
-
   if (config.algorithm === 'PCM' && config.pcm) {
-    pcmConfig = {
-      samplingRate: config.pcm.samplingRate,
-      quantizationLevels: config.pcm.quantizationLevels
-    };
+    return await analogToDigitalPCMWasm(frequency, amplitude, config.pcm);
   } else if (config.algorithm === 'Delta Modulation' && config.deltaModulation) {
-    deltaConfig = {
-      samplingRate: config.deltaModulation.samplingRate,
-      deltaStepSize: config.deltaModulation.deltaStepSize
-    };
+    return await analogToDigitalDMWasm(frequency, amplitude, config.deltaModulation);
   }
 
-  const request: AnalogToDigitalRequest = {
-    frequency,
-    amplitude,
-    pcm: pcmConfig,
-    deltaModulation: deltaConfig
-  };
-
-  const response = await grpcClient.analogToDigital(request);
-
-  return {
-    input: response.input,
-    transmitted: response.transmitted,
-    output: response.output
-  };
+  // Fallback / Error case
+  return { input: [], transmitted: [], output: [] };
 }
-

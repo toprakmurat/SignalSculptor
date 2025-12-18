@@ -17,8 +17,6 @@ export function DigitalToDigitalMode() {
   const [signalData, setSignalData] = useState<SignalData | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // Debounce timer ref to prevent excessive recalculations on input changes
-  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   /**
    * Memoized binary input length to avoid recalculation
@@ -96,36 +94,20 @@ export function DigitalToDigitalMode() {
     setViewportStart(0);
   }, [binaryInput, algorithm]);
 
-  // Initial signal generation
+  // Debounced signal generation when input or algorithm changes
   useEffect(() => {
-    if (isValidBinary(binaryInput)) {
+    // Skip if input is invalid
+    if (!isValidBinary(binaryInput)) return;
+
+    // Set up cleanup/debounce timer
+    const timer = setTimeout(() => {
       const end = needsViewport ? Math.min(viewportStart + VIEWPORT_WINDOW_SIZE, binaryLength) : undefined;
       generateSignal(needsViewport ? viewportStart : undefined, end);
-    }
-  }, [algorithm, binaryInput, isValidBinary, needsViewport, viewportStart, binaryLength, generateSignal]); // Only on input/algorithm change
+    }, 300); // 300ms delay for smooth typing
 
-  // Debounced auto-regenerate signal when algorithm or input changes (if valid data exists)
-  // Only recalculates after user stops typing for 500ms
-  useEffect(() => {
-    if (signalData && isValidBinary(binaryInput) && !needsViewport) {
-      // Clear existing timer
-      if (debounceTimerRef.current) {
-        clearTimeout(debounceTimerRef.current);
-      }
-
-      // Set new timer for debounced recalculation
-      debounceTimerRef.current = setTimeout(() => {
-        generateSignal();
-      }, 500);
-
-      // Cleanup on unmount or dependency change
-      return () => {
-        if (debounceTimerRef.current) {
-          clearTimeout(debounceTimerRef.current);
-        }
-      };
-    }
-  }, [algorithm, binaryInput, signalData, isValidBinary, generateSignal, needsViewport]);
+    // Clean up timer on next effect run (classic debounce pattern)
+    return () => clearTimeout(timer);
+  }, [algorithm, binaryInput, isValidBinary, needsViewport, viewportStart, binaryLength, generateSignal]);
 
   return (
     <div className="space-y-6">
