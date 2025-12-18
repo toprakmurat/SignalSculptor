@@ -3,47 +3,61 @@ SignalSculptor is an educational web application that simulates common data tran
 
 This project is implemented with React + TypeScript and bundled with Vite. Charts are rendered using Recharts and the styling is done with Tailwind CSS.
 
+## Architecture & WASM
+The core signal processing logic is written in C++ for performance and shared between:
+1.  **WebAssembly (WASM)**: Running directly in the browser (primary mode).
+2.  **gRPC Server**: Legacy/Reference backend implementation.
+
+The C++ logic is located in `cpp_server/` and is compiled to a WASM module (`signal_lib.wasm`) that the frontend loads dynamically.
+
 ## Contents
 - `src/` — application source code
+	- `api/wasm/` — Generated JS bindings for WASM
 	- `components/` — UI components and mode pages
-	- `utils/` — signal generation algorithms and helpers
-	- `types.ts` — shared TypeScript types
-- `index.html`, `vite.config.ts` — Vite app entry and config
-- `package.json` — npm scripts and dependencies
-
-## Features
-- Interactive encodings and modulations:
-	- Digital → Digital: NRZ-L, NRZ-I, Manchester, Differential Manchester, AMI
-	- Digital → Analog: ASK, FSK, PSK
-	- Analog → Digital: PCM, Delta Modulation
-	- Analog → Analog: carrier modulation demonstrations
-- Visual signal charts for input, transmitted, and output signals
-- Configurable parameters (bit patterns, frequencies, amplitudes, algorithms)
-- Benchmark mode to compare simple performance characteristics
+	- `utils/` — signal generation helpers (interfacing with WASM)
+- `cpp_server/` — C++ source code for signal processing logic
+    - `SignalLib.cpp/h` — Core algorithms
+    - `wasm_binding.cpp` — Emscripten bindings
+    - `compile_wasm.sh` — WASM build script
+- `public/wasm/` — Compiled `.wasm` binary
 
 ## Requirements
-- Node.js 18+ recommended
-- npm (bundled with Node) or yarn
+- **Node.js 18+**
+- **Emscripten** (only if you need to modify C++ code and recompile WASM)
 
-## Quick start (development)
-1. Clone the repository and open the project root.
-2. Install dependencies:
+## Quick start
+
+### 1. Run the Web App
+The project comes with pre-compiled WASM artifacts, so you can run it immediately:
 
 ```bash
+# Install dependencies
 npm install
-```
 
-3. Start the development server:
-
-```bash
+# Start development server
 npm run dev
 ```
+Open `http://localhost:5173` in your browser.
 
-4. Open the app in your browser at the URL shown by Vite (usually `http://localhost:5173`).
+### 2. (Optional) Recompile WASM
+If you modify the C++ logic in `cpp_server/`, you must recompile the WASM module.
+Ensure you have the [Emscripten SDK](https://emscripten.org/docs/getting_started/downloads.html) installed and active in your terminal.
+
+```bash
+cd cpp_server
+./compile_wasm.sh
+```
+This command will:
+1.  Compile `SignalLib.cpp` to WebAssembly.
+2.  Update `src/api/wasm/signal_lib.js`.
+3.  Update `public/wasm/signal_lib.wasm`.
+4.  Refresh the web page to see changes.
 
 ## Available scripts
 - `npm run dev` — start Vite dev server
 - `npm run build` — produce a production build in `dist/`
 - `npm run preview` — locally preview the production build
 
-Check `package.json` for the exact script definitions.
+## Troubleshooting
+- **"signal_lib.wasm not found"**: Ensure the `public/wasm/` folder exists and contains the `.wasm` file. If not, run the compilation script.
+- **Performance Issues**: The app uses a debounced input for expensive operations. If simulating extremely large datasets, there might be a slight delay.
