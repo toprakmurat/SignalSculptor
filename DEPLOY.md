@@ -69,3 +69,15 @@ Open your browser and visit `http://<your-vps-ip>`. You should see the SignalScu
 - **Stop container**: `docker stop signal-sculptor`
 - **Remove container**: `docker rm signal-sculptor`
 - **Rebuild**: After code changes, run the build command again and restart the container.
+
+## Cleanup
+To remove the container and image completely:
+
+1.  **Stop and Remove Container**:
+    ```bash
+    docker rm -f signal-sculptor
+    ```
+2.  **Remove Image**:
+    ```bash
+    docker rmi signalsculptor
+    ```
