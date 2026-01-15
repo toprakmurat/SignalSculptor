@@ -14,7 +14,7 @@ This project is implemented with React + TypeScript and bundled with Vite. Chart
 ## Features
 - Interactive encodings and modulations:
 	- Digital → Digital: NRZ-L, NRZ-I, Manchester, Differential Manchester, AMI
-	- Digital → Analog: ASK, FSK, PSK
+	- Digital → Analog: ASK, BFSK, MFSK, BPSK, DPSK, QPSK, OQPSK, MPSK, QAM
 	- Analog → Digital: PCM, Delta Modulation
 	- Analog → Analog: carrier modulation demonstrations
 - Visual signal charts for input, transmitted, and output signals
