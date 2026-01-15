@@ -35,7 +35,7 @@ struct DMConfig {
 SignalResult AnalogToDigitalPCM(double freq, double amp, const PCMConfig& config);
 SignalResult AnalogToDigitalDM(double freq, double amp, const DMConfig& config);
 
-enum class DigitalModulation { ASK, FSK, PSK };
+enum class DigitalModulation { ASK, BFSK, MFSK, BPSK, DPSK, QPSK, OQPSK, MPSK, QAM };
 SignalResult DigitalToAnalog(const std::string& binary, DigitalModulation type);
 
 enum class LineCoding { NRZ_L, NRZ_I, MANCHESTER, DIFFERENTIAL_MANCHESTER, AMI, PSEUDOTERNARY, B8ZS, HDB3 };

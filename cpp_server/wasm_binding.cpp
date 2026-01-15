@@ -35,8 +35,14 @@ EMSCRIPTEN_BINDINGS(signal_lib) {
 
   enum_<DigitalModulation>("DigitalModulation")
       .value("ASK", DigitalModulation::ASK)
-      .value("FSK", DigitalModulation::FSK)
-      .value("PSK", DigitalModulation::PSK);
+      .value("BFSK", DigitalModulation::BFSK)
+      .value("MFSK", DigitalModulation::MFSK)
+      .value("BPSK", DigitalModulation::BPSK)
+      .value("DPSK", DigitalModulation::DPSK)
+      .value("QPSK", DigitalModulation::QPSK)
+      .value("OQPSK", DigitalModulation::OQPSK)
+      .value("MPSK", DigitalModulation::MPSK)
+      .value("QAM", DigitalModulation::QAM);
 
   function("DigitalToAnalog", &DigitalToAnalog);
 

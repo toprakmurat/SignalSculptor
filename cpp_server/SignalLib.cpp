@@ -301,7 +301,7 @@ SignalResult DigitalToAnalog(const std::string &binary,
     }
     break;
   }
-  case DigitalModulation::FSK: {
+  case DigitalModulation::BFSK: {
     constexpr double freq0 = 3.0;
     constexpr double freq1 = 7.0;
     constexpr double two_pi_freq0 = 2 * PI * freq0;
@@ -319,7 +319,36 @@ SignalResult DigitalToAnalog(const std::string &binary,
     }
     break;
   }
-  case DigitalModulation::PSK: {
+  case DigitalModulation::MFSK: {
+    // 4-FSK: 4 frequencies for 2-bit symbols
+    constexpr double frequencies[4] = {2.0, 4.0, 6.0, 8.0};
+    constexpr double symbol_duration = bit_duration * 2;
+    constexpr int samples_per_symbol = samples_per_bit * 2;
+    constexpr double time_step = symbol_duration / samples_per_symbol;
+
+    // Pad to even number of bits
+    std::string padded = binary;
+    if (padded.size() % 2 != 0)
+      padded += '0';
+    size_t num_symbols = padded.size() / 2;
+
+    for (size_t i = 0; i < num_symbols; i++) {
+      int bit1 = (padded[i * 2] == '1') ? 1 : 0;
+      int bit2 = (padded[i * 2 + 1] == '1') ? 1 : 0;
+      int symbol_value = bit1 * 2 + bit2;
+      double freq = frequencies[symbol_value];
+      double two_pi_freq = 2 * PI * freq;
+      double base_time = i * symbol_duration;
+
+      for (int j = 0; j <= samples_per_symbol; j++) {
+        double t = base_time + j * time_step;
+        double y = std::sin(two_pi_freq * t);
+        transmitted.push_back({t, y});
+      }
+    }
+    break;
+  }
+  case DigitalModulation::BPSK: {
     constexpr double carrier_freq = 5.0;
     constexpr double two_pi_carrier = 2 * PI * carrier_freq;
     constexpr double time_step = bit_duration / samples_per_bit;
@@ -330,6 +359,160 @@ SignalResult DigitalToAnalog(const std::string &binary,
       for (int j = 0; j <= samples_per_bit; j++) {
         double t = base_time + j * time_step;
         double y = std::sin(two_pi_carrier * t + phase_shift);
+        transmitted.push_back({t, y});
+      }
+    }
+    break;
+  }
+  case DigitalModulation::DPSK: {
+    constexpr double carrier_freq = 5.0;
+    constexpr double two_pi_carrier = 2 * PI * carrier_freq;
+    constexpr double time_step = bit_duration / samples_per_bit;
+    double current_phase = 0.0;
+
+    for (size_t i = 0; i < num_bits; i++) {
+      // Bit 0 causes phase change, bit 1 keeps same phase
+      if (binary[i] == '0') {
+        current_phase += PI;
+      }
+      double base_time = i * bit_duration;
+      for (int j = 0; j <= samples_per_bit; j++) {
+        double t = base_time + j * time_step;
+        double y = std::sin(two_pi_carrier * t + current_phase);
+        transmitted.push_back({t, y});
+      }
+    }
+    break;
+  }
+  case DigitalModulation::QPSK: {
+    constexpr double carrier_freq = 5.0;
+    constexpr double two_pi_carrier = 2 * PI * carrier_freq;
+    constexpr double symbol_duration = bit_duration * 2;
+    constexpr int samples_per_symbol = samples_per_bit * 2;
+    constexpr double time_step = symbol_duration / samples_per_symbol;
+    // Phase map: 00=45°, 01=135°, 10=315°, 11=225°
+    constexpr double phase_map[4] = {PI / 4, 3 * PI / 4, 7 * PI / 4,
+                                     5 * PI / 4};
+
+    std::string padded = binary;
+    if (padded.size() % 2 != 0)
+      padded += '0';
+    size_t num_symbols = padded.size() / 2;
+
+    for (size_t i = 0; i < num_symbols; i++) {
+      int bit1 = (padded[i * 2] == '1') ? 1 : 0;
+      int bit2 = (padded[i * 2 + 1] == '1') ? 1 : 0;
+      int symbol_value = bit1 * 2 + bit2;
+      double phase = phase_map[symbol_value];
+      double base_time = i * symbol_duration;
+
+      for (int j = 0; j <= samples_per_symbol; j++) {
+        double t = base_time + j * time_step;
+        double y = std::sin(two_pi_carrier * t + phase);
+        transmitted.push_back({t, y});
+      }
+    }
+    break;
+  }
+  case DigitalModulation::OQPSK: {
+    constexpr double carrier_freq = 5.0;
+    constexpr double two_pi_carrier = 2 * PI * carrier_freq;
+    constexpr double symbol_duration = bit_duration * 2;
+    constexpr int samples_per_symbol = samples_per_bit * 2;
+    constexpr int half_symbol_samples = samples_per_bit;
+
+    std::string padded = binary;
+    if (padded.size() % 2 != 0)
+      padded += '0';
+    size_t num_symbols = padded.size() / 2;
+
+    std::vector<int> i_bits, q_bits;
+    for (size_t i = 0; i < num_symbols; i++) {
+      i_bits.push_back((padded[i * 2] == '1') ? 1 : 0);
+      q_bits.push_back((padded[i * 2 + 1] == '1') ? 1 : 0);
+    }
+
+    int total_samples = num_symbols * samples_per_symbol + half_symbol_samples;
+    for (int sample = 0; sample < total_samples; sample++) {
+      double t =
+          (static_cast<double>(sample) / samples_per_symbol) * symbol_duration;
+      int i_idx = sample / samples_per_symbol;
+      int q_idx = (sample - half_symbol_samples / 2) / samples_per_symbol;
+
+      double i_val = (i_idx >= 0 && i_idx < static_cast<int>(i_bits.size()))
+                         ? (i_bits[i_idx] == 1 ? 1.0 : -1.0)
+                         : 0.0;
+      double q_val = (q_idx >= 0 && q_idx < static_cast<int>(q_bits.size()))
+                         ? (q_bits[q_idx] == 1 ? 1.0 : -1.0)
+                         : 0.0;
+
+      double y = i_val * std::cos(two_pi_carrier * t) +
+                 q_val * std::sin(two_pi_carrier * t);
+      transmitted.push_back({t, y});
+    }
+    break;
+  }
+  case DigitalModulation::MPSK: {
+    // 8-PSK: 8 phases for 3-bit symbols
+    constexpr double carrier_freq = 5.0;
+    constexpr double two_pi_carrier = 2 * PI * carrier_freq;
+    constexpr int bits_per_symbol = 3;
+    constexpr double symbol_duration = bit_duration * bits_per_symbol;
+    constexpr int samples_per_symbol = samples_per_bit * bits_per_symbol;
+    constexpr double time_step = symbol_duration / samples_per_symbol;
+
+    std::string padded = binary;
+    while (padded.size() % bits_per_symbol != 0)
+      padded += '0';
+    size_t num_symbols = padded.size() / bits_per_symbol;
+
+    for (size_t i = 0; i < num_symbols; i++) {
+      int bit1 = (padded[i * bits_per_symbol] == '1') ? 1 : 0;
+      int bit2 = (padded[i * bits_per_symbol + 1] == '1') ? 1 : 0;
+      int bit3 = (padded[i * bits_per_symbol + 2] == '1') ? 1 : 0;
+      int symbol_value = bit1 * 4 + bit2 * 2 + bit3;
+      double phase = (static_cast<double>(symbol_value) / 8.0) * 2 * PI;
+      double base_time = i * symbol_duration;
+
+      for (int j = 0; j <= samples_per_symbol; j++) {
+        double t = base_time + j * time_step;
+        double y = std::sin(two_pi_carrier * t + phase);
+        transmitted.push_back({t, y});
+      }
+    }
+    break;
+  }
+  case DigitalModulation::QAM: {
+    // 16-QAM: 4x4 constellation for 4-bit symbols
+    constexpr double carrier_freq = 5.0;
+    constexpr double two_pi_carrier = 2 * PI * carrier_freq;
+    constexpr int bits_per_symbol = 4;
+    constexpr double symbol_duration = bit_duration * bits_per_symbol;
+    constexpr int samples_per_symbol = samples_per_bit * bits_per_symbol;
+    constexpr double time_step = symbol_duration / samples_per_symbol;
+    constexpr double levels[4] = {-3.0, -1.0, 1.0, 3.0};
+
+    std::string padded = binary;
+    while (padded.size() % bits_per_symbol != 0)
+      padded += '0';
+    size_t num_symbols = padded.size() / bits_per_symbol;
+
+    for (size_t i = 0; i < num_symbols; i++) {
+      int bit1 = (padded[i * bits_per_symbol] == '1') ? 1 : 0;
+      int bit2 = (padded[i * bits_per_symbol + 1] == '1') ? 1 : 0;
+      int bit3 = (padded[i * bits_per_symbol + 2] == '1') ? 1 : 0;
+      int bit4 = (padded[i * bits_per_symbol + 3] == '1') ? 1 : 0;
+
+      int i_idx = bit1 * 2 + bit2;
+      int q_idx = bit3 * 2 + bit4;
+      double i_amp = levels[i_idx] / 3.0;
+      double q_amp = levels[q_idx] / 3.0;
+
+      double base_time = i * symbol_duration;
+      for (int j = 0; j <= samples_per_symbol; j++) {
+        double t = base_time + j * time_step;
+        double y = i_amp * std::cos(two_pi_carrier * t) +
+                   q_amp * std::sin(two_pi_carrier * t);
         transmitted.push_back({t, y});
       }
     }

@@ -29,7 +29,7 @@ export function DigitalToAnalogMode() {
   const [viewportStart, setViewportStart] = useState(0);
   const needsViewport = useMemo(() => binaryLength > VIEWPORT_THRESHOLD, [binaryLength]);
 
-  const algorithms: DigitalToAnalogAlgorithm[] = ['ASK', 'FSK', 'PSK'];
+  const algorithms: DigitalToAnalogAlgorithm[] = ['ASK', 'BFSK', 'MFSK', 'BPSK', 'DPSK', 'QPSK', 'OQPSK', 'MPSK', 'QAM'];
 
   /**
    * Validates binary input string
@@ -175,8 +175,14 @@ export function DigitalToAnalogMode() {
         <div className="bg-blue-50 border-l-4 border-blue-500 p-3 text-sm text-gray-700">
           <strong>Technique:</strong> {algorithm} (
           {algorithm === 'ASK' && 'Amplitude Shift Keying'}
-          {algorithm === 'FSK' && 'Frequency Shift Keying'}
-          {algorithm === 'PSK' && 'Phase Shift Keying'})
+          {algorithm === 'BFSK' && 'Binary Frequency Shift Keying'}
+          {algorithm === 'MFSK' && 'M-ary Frequency Shift Keying (4-FSK)'}
+          {algorithm === 'BPSK' && 'Binary Phase Shift Keying'}
+          {algorithm === 'DPSK' && 'Differential Phase Shift Keying'}
+          {algorithm === 'QPSK' && 'Quadrature Phase Shift Keying'}
+          {algorithm === 'OQPSK' && 'Offset Quadrature Phase Shift Keying'}
+          {algorithm === 'MPSK' && 'M-ary Phase Shift Keying (8-PSK)'}
+          {algorithm === 'QAM' && 'Quadrature Amplitude Modulation (16-QAM)'})
         </div>
 
         {error && (
